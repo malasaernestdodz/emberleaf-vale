@@ -1,0 +1,48 @@
+import { COLLIDERS } from './world'
+
+const PLAYER_H = 1.55
+
+export function resolveCollisions(px: number, pz: number, r: number, feetY: number): [number, number] {
+  let x = px
+  let z = pz
+  for (let pass = 0; pass < 3; pass++) {
+    for (const c of COLLIDERS) {
+      const y0 = c.y0 ?? 0
+      const y1 = c.top ?? Infinity
+      if (feetY > y1 - 0.3) continue
+      if (feetY + PLAYER_H < y0 + 0.05) continue
+      if (c.t === 'c') {
+        const dx = x - c.x
+        const dz = z - c.z
+        const d = Math.hypot(dx, dz)
+        const m = r + c.r
+        if (d < m) {
+          if (d < 1e-6) {
+            x = c.x + m
+            continue
+          }
+          x = c.x + (dx / d) * m
+          z = c.z + (dz / d) * m
+        }
+      } else {
+        const cos = Math.cos(c.yaw)
+        const sin = Math.sin(c.yaw)
+        const dx = x - c.x
+        const dz = z - c.z
+        const lx = cos * dx - sin * dz
+        const lz = sin * dx + cos * dz
+        const ox = c.hw + r - Math.abs(lx)
+        const oz = c.hd + r - Math.abs(lz)
+        if (ox > 0 && oz > 0) {
+          let nlx = lx
+          let nlz = lz
+          if (ox < oz) nlx = lx + Math.sign(lx || 1) * ox
+          else nlz = lz + Math.sign(lz || 1) * oz
+          x = c.x + nlx * cos + nlz * sin
+          z = c.z - nlx * sin + nlz * cos
+        }
+      }
+    }
+  }
+  return [x, z]
+}

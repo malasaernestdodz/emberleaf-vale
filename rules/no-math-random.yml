@@ -1,0 +1,9 @@
+id: no-math-random-in-frame
+language: TypeScript
+severity: error
+message: Math.random breaks world determinism — use the seeded rng helpers from lib/math or lib/items.
+note: See openspec/project.md conventions.
+files:
+  - 'src/**'
+rule:
+  pattern: Math.random()

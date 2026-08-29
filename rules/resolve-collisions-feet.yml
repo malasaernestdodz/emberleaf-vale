@@ -1,0 +1,9 @@
+id: resolve-collisions-needs-feet
+language: TypeScript
+severity: error
+message: resolveCollisions must receive the feetY argument — height-aware (top/y0 span) collision depends on it.
+note: See openspec specs collision-tops requirement.
+files:
+  - 'src/**'
+rule:
+  pattern: resolveCollisions($A, $B, $C)
