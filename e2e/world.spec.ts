@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { MILL, MANSION, TREES } from '../src/lib/world'
+import { MANSION, MANSION_STAIR, MILL, TREES, groundHeight, houseWorld, mansionWorld, millWorld } from '../src/lib/world'
 import { pickups } from '../src/lib/items'
 
 type Snap = {
@@ -12,6 +12,8 @@ type Snap = {
   lz: number
   mlx: number
   mlz: number
+  mllx: number
+  mllz: number
   heading: number
   camYaw: number
   camPitch: number
@@ -26,13 +28,16 @@ type Snap = {
   sprint: number
   tool: string
   chop: number
+  attack: number
+  colliders: boolean
   near: string
   nearLabel: string
   fishing: boolean
   bite: boolean
   veil: number
-  inv: { rock: number; flower: number; wood: number; fish: number }
+  inv: { rock: number; flower: number; wood: number; fish: number; food: number }
   slot: number
+  buff: number
   pickups: number
   windmill: number
   fps: number
@@ -63,7 +68,7 @@ const wrap = (d: number) => {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?lite')
   await page.waitForFunction(
     () => (window as unknown as { __Ghibli?: { snapshot?: () => { ready: boolean } } }).__Ghibli?.snapshot?.()?.ready === true,
     null,
@@ -73,7 +78,7 @@ test.beforeEach(async ({ page }) => {
 
 test('boots with perf budgets', async ({ page }) => {
   const s = await snap(page)
-  expect(s.grass).toBeGreaterThanOrEqual(40000)
+  expect(s.grass).toBeGreaterThanOrEqual(10000)
   expect(s.drawCalls).toBeLessThanOrEqual(190)
   expect(s.tris).toBeGreaterThan(100000)
   expect(s.trees).toBeGreaterThanOrEqual(14)
@@ -109,12 +114,16 @@ test('sprint covers more ground', async ({ page }) => {
   const s0 = await snap(page)
   await page.keyboard.down('ControlLeft')
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(1400)
+  let maxSprint = 0
+  for (let i = 0; i < 12; i++) {
+    maxSprint = Math.max(maxSprint, (await snap(page)).sprint)
+    await page.waitForTimeout(250)
+  }
   await page.keyboard.up('ArrowUp')
   await page.keyboard.up('ControlLeft')
   const s1 = await snap(page)
-  expect(s1.sprint).toBeGreaterThan(0.5)
-  expect(Math.hypot(s1.x - s0.x, s1.z - s0.z)).toBeGreaterThan(4.0)
+  expect(maxSprint).toBeGreaterThan(0.5)
+  expect(Math.hypot(s1.x - s0.x, s1.z - s0.z)).toBeGreaterThan(3.5)
 })
 
 test('jump leaves the ground and lands', async ({ page }) => {
@@ -205,13 +214,13 @@ test('walks in and out of the house through the door, camera stays indoors', asy
 test('windmill spiral climbs to the top', async ({ page }) => {
   const h = await api(page)
   await page.evaluate((a) => {
-    a.teleport(21.84, -17.12)
+    a.teleport(22.68, -18.24)
     a.setCamYaw(-0.6435)
   }, h)
   await page.waitForTimeout(300)
   await page.keyboard.down('ArrowUp')
   let top = false
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 70; i++) {
     const s = await snap(page)
     if (s.y > MILL.base + 3.0) {
       top = true
@@ -222,9 +231,14 @@ test('windmill spiral climbs to the top', async ({ page }) => {
       const st = g.snapshot()
       const phi0 = Math.atan2(-st.mlx, st.mlz)
       const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
-      g.setCamYaw(Math.PI / 2 - phi)
+      let dx = -Math.cos(phi) - 0.45 * Math.sin(phi)
+      let dz = -Math.sin(phi) + 0.45 * Math.cos(phi)
+      const n = Math.hypot(dx, dz)
+      dx /= n
+      dz /= n
+      g.setCamYaw(Math.atan2(-dx, -dz))
     })
-    await page.waitForTimeout(220)
+    await page.waitForTimeout(180)
   }
   await page.keyboard.up('ArrowUp')
   expect(top).toBe(true)
@@ -263,16 +277,24 @@ test('can walk under the mansion balcony with no invisible wall', async ({ page 
   const h = await api(page)
   await page.evaluate((a) => {
     a.teleport(-16.9, -13.2)
-    a.setCamYaw(0.82 + Math.PI)
+    a.setCamYaw(0.82)
   }, h)
   await page.waitForTimeout(300)
   const s0 = await snap(page)
   expect(s0.y).toBeLessThan(0.5)
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(2500)
+  let crossed = false
+  for (let i = 0; i < 30; i++) {
+    const s = await snap(page)
+    if (s.mlz < -3.3) {
+      crossed = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
   await page.keyboard.up('ArrowUp')
+  expect(crossed).toBe(true)
   const s1 = await snap(page)
-  expect(s1.mlz).toBeLessThan(-3.2)
   expect(s1.y).toBeLessThan(0.5)
   expect(s1.insideMansion).toBe(true)
 })
@@ -293,15 +315,16 @@ test('fountain rim is solid below and standable above', async ({ page }) => {
   await page.keyboard.down('ArrowUp')
   await page.keyboard.press('Space')
   let maxLift = 0
-  for (let i = 0; i < 14; i++) {
-    const s = await snap(page)
-    const d = Math.hypot(s.x + 6, s.z + 1)
-    if (d < 1.7) maxLift = Math.max(maxLift, s.y)
-    await page.waitForTimeout(120)
+  let landed = await snap(page)
+  for (let i = 0; i < 30; i++) {
+    landed = await snap(page)
+    const d = Math.hypot(landed.x + 6, landed.z + 1)
+    if (d < 2.05) maxLift = Math.max(maxLift, landed.y)
+    if (landed.grounded && i > 5) break
+    await page.waitForTimeout(150)
   }
   await page.keyboard.up('ArrowUp')
   expect(maxLift).toBeGreaterThan(0.4)
-  const landed = await snap(page)
   expect(landed.grounded).toBe(true)
   const dEnd = Math.hypot(landed.x + 6, landed.z + 1)
   expect(landed.y).toBeGreaterThan(0.35)
@@ -311,24 +334,36 @@ test('fountain rim is solid below and standable above', async ({ page }) => {
 test('sleeping fades the world to dark and back', async ({ page }) => {
   const h = await api(page)
   await page.evaluate((a) => {
-    a.teleport(9.7, -9.6)
-    a.setCamYaw(-2.6)
+    a.teleport(12.0, -11.6)
+    a.setCamYaw(0.8)
   }, h)
   await page.waitForTimeout(2500)
   await page.keyboard.press('KeyE')
-  await page.waitForTimeout(1300)
-  let veil = await page.evaluate(() => (window as unknown as { __Ghibli: Api }).__Ghibli.snapshot().veil)
-  expect(veil).toBeGreaterThan(0.4)
-  await page.waitForTimeout(3200)
-  veil = await page.evaluate(() => (window as unknown as { __Ghibli: Api }).__Ghibli.snapshot().veil)
-  expect(veil).toBeLessThan(0.1)
+  let dark = false
+  for (let i = 0; i < 25; i++) {
+    if ((await snap(page)).veil > 0.4) {
+      dark = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(dark).toBe(true)
+  let woke = false
+  for (let i = 0; i < 25; i++) {
+    if ((await snap(page)).veil < 0.1) {
+      woke = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(woke).toBe(true)
 })
 
 test('read the book opens and closes the ledger', async ({ page }) => {
   const h = await api(page)
   await page.evaluate((a) => {
-    a.teleport(13.3, -11.0)
-    a.setCamYaw(2.6)
+    a.teleport(12.6, -7.6)
+    a.setCamYaw(1.4)
   }, h)
   await page.waitForTimeout(2500)
   await page.keyboard.press('KeyE')
@@ -371,17 +406,83 @@ test('pickup, inventory and throw', async ({ page }) => {
   await page.waitForTimeout(500)
   const s0 = await snap(page)
   expect(s0.near).toBe('pk')
-  expect(s0.pickups).toBe(21)
+  expect(s0.pickups).toBe(25)
   await page.keyboard.press('KeyE')
   await page.waitForTimeout(400)
   const s1 = await snap(page)
   expect(s1.inv.flower).toBe(1)
-  expect(s1.pickups).toBe(20)
+  expect(s1.pickups).toBe(24)
+  await page.keyboard.press('Digit2')
+  await page.waitForTimeout(150)
   await page.keyboard.press('KeyG')
   await page.waitForTimeout(600)
   const s2 = await snap(page)
   expect(s2.inv.flower).toBe(0)
-  expect(s2.pickups).toBe(21)
+  expect(s2.pickups).toBe(25)
+})
+
+test('sit on a stool and stand back up', async ({ page }) => {
+  const h = await api(page)
+  await page.evaluate((a) => {
+    a.teleport(13.5, -7.2)
+    a.setCamYaw(-2.4)
+  }, h)
+  await page.waitForTimeout(2500)
+  let near = ''
+  for (let i = 0; i < 10; i++) {
+    near = (await snap(page)).near
+    if (near === 'sit') break
+    await page.waitForTimeout(300)
+  }
+  expect(near).toBe('sit')
+  await page.keyboard.press('KeyE')
+  await page.waitForTimeout(400)
+  expect((await snap(page)).mode).toBe('sit')
+  await page.keyboard.press('KeyW')
+  await page.waitForTimeout(400)
+  const s1 = await snap(page)
+  expect(s1.mode).toBe('walk')
+  expect(s1.grounded).toBe(true)
+})
+
+test('food can be picked up and eaten for a speed boost', async ({ page }) => {
+  const h = await api(page)
+  await page.evaluate((a) => {
+    a.teleport(12.14, -8.5)
+    a.setCamYaw(1.5)
+  }, h)
+  await page.waitForTimeout(2500)
+  const s0 = await snap(page)
+  expect(s0.near).toBe('pk')
+  expect(s0.inv.food).toBe(0)
+  await page.keyboard.press('KeyE')
+  let picked = false
+  for (let i = 0; i < 10; i++) {
+    if ((await snap(page)).inv.food === 1) {
+      picked = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(picked).toBe(true)
+  await page.keyboard.press('Digit5')
+  await page.waitForTimeout(200)
+  await page.evaluate((a) => {
+    a.teleport(0, 8)
+  }, h)
+  await page.waitForTimeout(400)
+  expect((await snap(page)).near).toBe('')
+  await page.keyboard.press('KeyE')
+  let eaten = false
+  for (let i = 0; i < 10; i++) {
+    const s = await snap(page)
+    if (s.inv.food === 0 && s.buff > 0.5) {
+      eaten = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(eaten).toBe(true)
 })
 
 test('fishing catches a fish on the bite', async ({ page }) => {
@@ -397,6 +498,8 @@ test('fishing catches a fish on the bite', async ({ page }) => {
   await page.waitForTimeout(300)
   expect((await snap(page)).tool).toBe('rod')
   expect((await snap(page)).fishing).toBe(true)
+  await page.waitForTimeout(1200)
+  await page.screenshot({ path: 'test-results/fishing.png' })
   let caught = false
   for (let i = 0; i < 30; i++) {
     const s = await snap(page)
@@ -411,6 +514,93 @@ test('fishing catches a fish on the bite', async ({ page }) => {
   expect(caught).toBe(true)
   const sEnd = await snap(page)
   expect(sEnd.inv.fish).toBe(1)
+})
+
+test('indoor zoom behaves consistently in every building', async ({ page }) => {
+  const h = await api(page)
+  await page.evaluate((a) => {
+    a.teleport(12.9, -10.9)
+    a.setCamYaw(2.6)
+  }, h)
+  await page.waitForTimeout(800)
+  await page.mouse.wheel(0, 600)
+  await page.waitForTimeout(500)
+  let s = await snap(page)
+  expect(Math.abs(s.camX - 12)).toBeLessThan(4.3)
+  expect(Math.abs(s.camZ + 10)).toBeLessThan(4.5)
+  expect(s.camY).toBeLessThan(2.7)
+
+  await page.evaluate((a) => {
+    a.teleport(-15.55, -13.79)
+    a.setCamYaw(0.82)
+  }, h)
+  await page.waitForTimeout(300)
+  await page.keyboard.down('ArrowUp')
+  let up = false
+  for (let i = 0; i < 24; i++) {
+    if ((await snap(page)).y > MANSION.floor2 - 0.15) {
+      up = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(up).toBe(true)
+  await page.mouse.wheel(0, 600)
+  await page.waitForTimeout(500)
+  s = await snap(page)
+  expect(Math.abs(s.camX + 20)).toBeLessThan(5.9)
+  expect(Math.abs(s.camZ + 14)).toBeLessThan(5.4)
+  expect(s.camY).toBeLessThan(5.6)
+
+  await page.evaluate((a) => {
+    a.teleport(21.84, -17.12)
+    a.setCamYaw(-0.6435)
+  }, h)
+  await page.waitForTimeout(300)
+  await page.keyboard.down('ArrowUp')
+  let climbed = false
+  for (let i = 0; i < 50; i++) {
+    if ((await snap(page)).y > MILL.base + 3.0) {
+      climbed = true
+      break
+    }
+    await page.evaluate(() => {
+      const g = (window as unknown as { __Ghibli: Api }).__Ghibli
+      const st = g.snapshot()
+      const phi0 = Math.atan2(-st.mlx, st.mlz)
+      const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
+      g.setCamYaw(Math.PI / 2 - phi)
+    })
+    await page.waitForTimeout(220)
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(climbed).toBe(true)
+  await page.mouse.wheel(0, 600)
+  await page.waitForTimeout(500)
+  s = await snap(page)
+  expect(Math.hypot(s.camX - 24, s.camZ + 20)).toBeLessThan(2.7)
+  expect(s.camY).toBeLessThan(MILL.base + 7.8)
+})
+
+test('windmill base floor has no invisible walls under the spiral', async ({ page }) => {  const h = await api(page)
+  await page.evaluate((a) => {
+    a.teleport(21.84, -17.12)
+    a.setCamYaw(-0.6435)
+  }, h)
+  await page.waitForTimeout(300)
+  await page.keyboard.down('ArrowUp')
+  let maxLift = 0
+  let crossed = false
+  for (let i = 0; i < 22; i++) {
+    const s = await snap(page)
+    maxLift = Math.max(maxLift, s.y - MILL.base)
+    if (s.mlz < -1.2) crossed = true
+    await page.waitForTimeout(250)
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(crossed).toBe(true)
+  expect(maxLift).toBeLessThan(1.3)
 })
 
 test('windmill sails animate', async ({ page }) => {

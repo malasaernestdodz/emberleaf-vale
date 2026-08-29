@@ -11,6 +11,7 @@ export function Pickups() {
   const flowers = useRef<THREE.InstancedMesh>(null!)
   const woods = useRef<THREE.InstancedMesh>(null!)
   const fishes = useRef<THREE.InstancedMesh>(null!)
+  const foods = useRef<THREE.InstancedMesh>(null!)
   const dummy = useMemo(() => new THREE.Object3D(), [])
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export function Pickups() {
       p.x += p.vx * dt
       p.z += p.vz * dt
       p.y += p.vy * dt
-      const gh = groundHeight(p.x, p.z) + 0.12
+      const gh = groundHeight(p.x, p.z, p.y) + 0.12
       if (p.y <= gh) {
         p.y = gh
         p.flying = false
@@ -40,7 +41,7 @@ export function Pickups() {
         p.vy = 0
       }
     }
-    const lists: Record<string, typeof pickups> = { rock: [], flower: [], wood: [], fish: [] }
+    const lists: Record<string, typeof pickups> = { rock: [], flower: [], wood: [], fish: [], food: [] }
     for (const p of pickups) {
       if (p.alive) lists[p.type].push(p)
     }
@@ -61,6 +62,7 @@ export function Pickups() {
     place(flowers.current, lists.flower, 0)
     place(woods.current, lists.wood, Math.PI / 2)
     place(fishes.current, lists.fish, Math.PI / 2)
+    place(foods.current, lists.food, 0.4)
   })
 
   return (
@@ -80,6 +82,10 @@ export function Pickups() {
       <instancedMesh ref={fishes} args={[undefined, undefined, MAX]} frustumCulled={false}>
         <coneGeometry args={[0.07, 0.26, 6]} />
         <meshToonMaterial color="#5fb8c9" />
+      </instancedMesh>
+      <instancedMesh ref={foods} args={[undefined, undefined, MAX]} frustumCulled={false} castShadow>
+        <cylinderGeometry args={[0.075, 0.095, 0.13, 9]} />
+        <meshToonMaterial color="#d9a05b" />
       </instancedMesh>
     </>
   )

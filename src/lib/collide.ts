@@ -9,7 +9,7 @@ export function resolveCollisions(px: number, pz: number, r: number, feetY: numb
     for (const c of COLLIDERS) {
       const y0 = c.y0 ?? 0
       const y1 = c.top ?? Infinity
-      if (feetY > y1 - 0.3) continue
+      if (feetY > y1 - 0.05) continue
       if (feetY + PLAYER_H < y0 + 0.05) continue
       if (c.t === 'c') {
         const dx = x - c.x

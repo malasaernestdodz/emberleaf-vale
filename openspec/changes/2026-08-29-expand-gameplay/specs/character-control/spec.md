@@ -35,17 +35,24 @@ Space (when grounded) SHALL set vy = 5.2 under gravity 16 (apex 0.845 m, air tim
 - **THEN** peak height exceeds 0.4 above the base and the player ends grounded within
   0.3 of the base height
 
-### Requirement: Height-aware collision spans (no invisible walls)
+### Requirement: Context-aware height field (no invisible walls, ever)
 
-Every collider SHALL carry an optional vertical span `y0`→`top` and apply only when
-the player body (feet→feet+1.55) overlaps it. Tops ≤ jump apex (0.845) are
-jump-standable; raised floors are walkable underneath; tops are walkable surfaces
-via the ground-height field.
+`groundHeight(x, z, curY)` SHALL resolve stacked levels by the caller's current
+feet height: the mansion floor-2 region returns floor 2 when `curY > floor2 − 0.6`
+and floor 1 otherwise; the windmill spiral returns a step's height only when
+`curY` is within 0.55 below it, else the base floor. Collider spans (`y0`/`top`)
+use 0.05 slack: furniture is solid at body height, walkable-under when raised,
+and jump-standable only via the ground-height regions.
 
 #### Scenario: Walk under the mansion balcony
 
-- **WHEN** the player walks on floor 1 beneath floor 2 and its furniture
-- **THEN** no collider blocks the path and the player stays at floor-1 height
+- **WHEN** groundHeight is queried inside the floor-2 footprint with curY = 0.22
+- **THEN** it returns floor-1 height (0.22), and with curY = 2.95 it returns 2.95
+
+#### Scenario: Walk under the windmill spiral
+
+- **WHEN** groundHeight is queried on the spiral annulus with curY at the base floor
+- **THEN** it returns the base floor even where the spiral step above is 3.6 high
 
 #### Scenario: Jump onto the fountain rim
 

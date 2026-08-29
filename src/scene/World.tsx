@@ -9,9 +9,11 @@ import { Mansion } from './Mansion'
 import { Windmill } from './Windmill'
 import { Fountain } from './Fountain'
 import { Well } from './Well'
+import { FishingFx } from './FishingFx'
 import { Air, Butterflies } from './Air'
 import { Pickups } from './Pickups'
 import { Player } from './Player'
+import { Colliders } from './Colliders'
 import { CameraRig } from './CameraRig'
 import { Probe } from './Probe'
 import { Effects } from './Effects'
@@ -33,8 +35,10 @@ export function World() {
       <Well />
       <Air />
       <Butterflies />
+      <FishingFx />
       <Pickups />
       <Player />
+      <Colliders />
       <CameraRig />
       <Probe />
       <Effects />

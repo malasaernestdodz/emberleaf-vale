@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { smoothstep } from '../lib/math'
-import { MANSION } from '../lib/world'
+import { MANSION, MANSION_STAIR } from '../lib/world'
 import { getToonRamp } from './toonRamp'
 
 const COLORS: Record<string, string> = {
@@ -15,6 +15,7 @@ const COLORS: Record<string, string> = {
   gold: '#d8b56a',
   blue: '#4a7a9e',
   green: '#5d8f3a',
+  steel: '#cfd6dd',
 }
 
 function tr(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) {
@@ -23,12 +24,17 @@ function tr(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) {
   return g
 }
 
-const SLOPE = Math.atan2(MANSION.floor2 - MANSION.floorY, 3.8)
+const H = 9.3
+const F2 = MANSION.floor2
+const f1 = MANSION.floorY
+const STAIR_MID_LX = (MANSION_STAIR.lx0 + MANSION_STAIR.lx1) / 2
+const STAIR_LEN = MANSION_STAIR.lz1 - MANSION_STAIR.lz0
+const SLOPE = Math.atan2(F2 - f1, STAIR_LEN)
 
 export function Mansion() {
   const doorGeo = useMemo(() => {
-    const g = new THREE.BoxGeometry(1.3, 2.1, 0.08)
-    g.translate(0.65, 0, 0)
+    const g = new THREE.BoxGeometry(1.76, 2.6, 0.1)
+    g.translate(0.88, 0, 0)
     return g
   }, [])
   const built = useMemo(() => {
@@ -38,14 +44,16 @@ export function Mansion() {
     }
     const hw = MANSION.w / 2
     const hd = MANSION.d / 2
-    const H = 6.2
-    const F2 = MANSION.floor2
-    const f1 = MANSION.floorY
 
     put('wood', tr(new THREE.BoxGeometry(MANSION.w, 0.16, MANSION.d), 0, f1 - 0.08, 0))
-    put('plaster', tr(new THREE.BoxGeometry(4.3, H, 0.2), -2.85, H / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(4.3, H, 0.2), 2.85, H / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(MANSION.w, H, 0.2), 0, H / 2, -hd))
+
+    put('plaster', tr(new THREE.BoxGeometry(5.7, H, 0.2), -4.65, H / 2, hd))
+    put('plaster', tr(new THREE.BoxGeometry(7.5, H, 0.2), 3.75, H / 2, hd))
+    put('plaster', tr(new THREE.BoxGeometry(1.8, H - 2.6, 0.2), -0.9, 2.6 + (H - 2.6) / 2, hd))
+    put('plaster', tr(new THREE.BoxGeometry(MANSION.w, F2, 0.2), 0, F2 / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(6.55, H - F2, 0.2), -4.225, F2 + (H - F2) / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(6.55, H - F2, 0.2), 4.225, F2 + (H - F2) / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(1.9, H - F2 - 2.3, 0.2), 0, F2 + 2.3 + (H - F2 - 2.3) / 2, -hd))
     put('plaster', tr(new THREE.BoxGeometry(0.2, H, MANSION.d), -hw, H / 2, 0))
     put('plaster', tr(new THREE.BoxGeometry(0.2, H, MANSION.d), hw, H / 2, 0))
 
@@ -54,122 +62,159 @@ export function Mansion() {
       [hw, -hd],
       [-hw, hd],
       [hw, hd],
-      [-0.78, hd],
-      [0.78, hd],
+      [-1.8, hd],
+      [0, hd],
     ]) {
-      put('timber', tr(new THREE.BoxGeometry(0.26, H + 0.05, 0.26), px, H / 2, pz))
+      put('timber', tr(new THREE.BoxGeometry(0.3, H + 0.05, 0.3), px, (H + 0.05) / 2, pz))
     }
-    put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.24, 0.28), 0, H, hd))
-    put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.24, 0.28), 0, H, -hd))
-    put('timber', tr(new THREE.BoxGeometry(0.28, 0.24, MANSION.d + 0.3), -hw, H, 0))
-    put('timber', tr(new THREE.BoxGeometry(0.28, 0.24, MANSION.d + 0.3), hw, H, 0))
-    put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.2, 0.24), 0, 3.06, hd))
-    put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.2, 0.24), 0, 3.06, -hd))
-    put('timber', tr(new THREE.BoxGeometry(0.24, 0.2, MANSION.d + 0.3), -hw, 3.06, 0))
-    put('timber', tr(new THREE.BoxGeometry(0.24, 0.2, MANSION.d + 0.3), hw, 3.06, 0))
+    for (const y of [F2 + 0.12, 6.8, H]) {
+      put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.24, 0.28), 0, y, hd))
+      put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.24, 0.28), 0, y, -hd))
+      put('timber', tr(new THREE.BoxGeometry(0.28, 0.24, MANSION.d + 0.3), -hw, y, 0))
+      put('timber', tr(new THREE.BoxGeometry(0.28, 0.24, MANSION.d + 0.3), hw, y, 0))
+    }
 
-    const addWin = (x: number, y: number, z: number, ry: number) => {
-      const f = new THREE.BoxGeometry(0.8, 0.8, 0.08)
+    const addWin = (x: number, y: number, z: number, ry: number, w = 0.9, h = 0.9) => {
+      const f = new THREE.BoxGeometry(w, h, 0.08)
       f.rotateY(ry)
       f.translate(x, y, z)
       put('timber', f)
-      const g = new THREE.PlaneGeometry(0.58, 0.58)
+      const g = new THREE.PlaneGeometry(w - 0.22, h - 0.22)
       g.rotateY(ry)
       g.translate(x + Math.sin(ry) * 0.06, y, z + Math.cos(ry) * 0.06)
       ;(buckets.glass ??= []).push(g)
     }
-    addWin(-2.4, 1.7, hd + 0.1, 0)
-    addWin(2.4, 1.7, hd + 0.1, 0)
-    addWin(-2.5, 4.7, -hd - 0.1, Math.PI)
-    addWin(2.5, 4.7, -hd - 0.1, Math.PI)
-    addWin(-hw - 0.1, 4.7, -1.5, -Math.PI / 2)
-    addWin(hw + 0.1, 1.7, 1.5, Math.PI / 2)
-    addWin(hw + 0.1, 4.7, -1.5, Math.PI / 2)
+    addWin(-3.6, 2.0, hd + 0.1, 0, 1.1, 1.7)
+    addWin(3.6, 2.0, hd + 0.1, 0, 1.1, 1.7)
+    addWin(-3.6, 5.8, hd + 0.1, 0)
+    addWin(3.6, 5.8, hd + 0.1, 0)
+    addWin(-4.5, 5.2, -hd - 0.1, Math.PI)
+    addWin(4.5, 5.2, -hd - 0.1, Math.PI)
+    addWin(-hw - 0.1, 1.9, 2.5, -Math.PI / 2)
+    addWin(-hw - 0.1, 5.2, -2.5, -Math.PI / 2)
+    addWin(hw + 0.1, 1.9, 2.5, Math.PI / 2)
+    addWin(hw + 0.1, 5.2, -2.5, Math.PI / 2)
 
     const roofPts: THREE.Vector2[] = []
     for (let i = 0; i <= 10; i++) {
       const t = i / 10
       const flare = 1 + 0.08 * smoothstep(0.65, 1, t)
-      roofPts.push(new THREE.Vector2(t * 7.6 * flare, H + Math.pow(1 - t, 1.2) * 1.9))
+      roofPts.push(new THREE.Vector2(t * 11.4 * flare, H + Math.pow(1 - t, 1.2) * 3.0))
     }
     put('roof', new THREE.LatheGeometry(roofPts, 4).rotateY(Math.PI / 4))
 
-    put('blue', tr(new THREE.CircleGeometry(1.9, 24).rotateX(-Math.PI / 2), 0, f1 + 0.015, 1.2))
-    put('gold', tr(new THREE.CircleGeometry(1.2, 24).rotateX(-Math.PI / 2), 0, f1 + 0.02, 1.2))
-    put('wood', tr(new THREE.BoxGeometry(2.6, 0.09, 1.0), 0, f1 + 0.42, 1.5))
+    put('wood', tr(new THREE.BoxGeometry(14.8, 0.15, 4.1), 0, F2 - 0.075, -3.95))
+
+    put('blue', tr(new THREE.CircleGeometry(2.0, 26).rotateX(-Math.PI / 2), 0, f1 + 0.015, 1.5))
+    put('gold', tr(new THREE.CircleGeometry(1.3, 26).rotateX(-Math.PI / 2), 0, f1 + 0.02, 1.5))
+    put('wood', tr(new THREE.BoxGeometry(3.2, 0.09, 1.4), 0, f1 + 0.8, 1.5))
     for (const [cx, cz] of [
-      [-1.2, 1.05],
-      [1.2, 1.05],
-      [-1.2, 1.95],
-      [1.2, 1.95],
+      [-1.45, 0.95],
+      [1.45, 0.95],
+      [-1.45, 2.05],
+      [1.45, 2.05],
     ]) {
-      put('wood', tr(new THREE.BoxGeometry(0.09, 0.38, 0.09), cx, f1 + 0.19, cz))
+      put('wood', tr(new THREE.BoxGeometry(0.14, 0.8, 0.14), cx, f1 + 0.4, cz))
     }
     for (const [px, pz] of [
-      [-1.5, 2.7],
-      [1.5, 2.7],
-      [0, 0.1],
+      [1.9, 0.95],
+      [1.9, 2.05],
+      [-1.9, 0.95],
+      [-1.9, 2.05],
     ]) {
-      put('wood', tr(new THREE.CylinderGeometry(0.22, 0.26, 0.44, 8), px, f1 + 0.22, pz))
+      put('wood', tr(new THREE.CylinderGeometry(0.26, 0.3, 0.55, 8), px, f1 + 0.275, pz))
     }
-    put('wood', tr(new THREE.BoxGeometry(0.55, 2.3, 2.9), -4.6, f1 + 1.15, -2))
+
+    put('wood', tr(new THREE.BoxGeometry(0.55, 2.4, 3.0), -7.05, f1 + 1.2, 0.5))
     for (let row = 0; row < 4; row++) {
-      for (let j = 0; j < 5; j++) {
+      for (let j = 0; j < 6; j++) {
         const cols = ['red', 'blue', 'gold', 'green']
-        put(cols[(row + j) % 4], tr(new THREE.BoxGeometry(0.2, 0.34, 0.24), -4.28, f1 + 0.45 + row * 0.5, -3.05 + j * 0.52))
+        put(cols[(row + j) % 4], tr(new THREE.BoxGeometry(0.2, 0.34, 0.4), -7.0, f1 + 0.5 + row * 0.52, -0.75 + j * 0.5))
       }
     }
+    put('wood', tr(new THREE.BoxGeometry(0.5, 2.3, 0.35), 4.9, f1 + 1.15, 4.6))
+    put('cream', tr(new THREE.CircleGeometry(0.18, 12), 4.9, f1 + 1.8, 4.79))
+    put('gold', tr(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 6), 4.9, f1 + 1.35, 4.75))
+
     for (const [px, pz] of [
-      [4.3, 2.0],
-      [-3.9, 3.2],
+      [-6.8, 5.2],
+      [-6.8, -0.8],
     ]) {
-      put('wood', tr(new THREE.CylinderGeometry(0.24, 0.3, 0.4, 8), px, f1 + 0.2, pz))
-      put('green', new THREE.SphereGeometry(0.34, 10, 8).translate(px, f1 + 0.72, pz))
+      put('wood', tr(new THREE.CylinderGeometry(0.28, 0.36, 0.5, 8), px, f1 + 0.25, pz))
+      put('green', new THREE.SphereGeometry(0.42, 10, 8).translate(px, f1 + 0.75, pz))
     }
 
-    put('wood', tr(new THREE.BoxGeometry(MANSION.w, 0.15, 3.6), 0, F2 - 0.075, -2.2))
-    const under = new THREE.BoxGeometry(1.26, 0.12, 4.68)
-    under.rotateX(SLOPE)
-    under.translate(2.9, (f1 + F2) / 2 - 0.1, 1.6)
-    put('wood', under)
-    const STEPS = 9
+    const STEPS = 16
     for (let k = 0; k < STEPS; k++) {
       const frac = (k + 0.5) / STEPS
-      const lz = 3.5 - frac * 3.8
-      const y = f1 + frac * (F2 - f1) - 0.03
-      put('wood', tr(new THREE.BoxGeometry(1.3, 0.09, 0.4), 2.9, y, lz))
+      const lz = MANSION_STAIR.lz1 - frac * STAIR_LEN
+      const y = f1 + ((k + 1) / STEPS) * (F2 - f1) - 0.06
+      put('wood', tr(new THREE.BoxGeometry(2.0, 0.12, 0.48), STAIR_MID_LX, y, lz))
     }
-    for (const rx of [2.25, 3.55]) {
-      const g = new THREE.BoxGeometry(0.09, 0.14, 4.74)
-      g.rotateX(SLOPE)
-      g.translate(rx, (f1 + F2) / 2 + 0.12, 1.6)
-      put('timber', g)
+    const rampLen = Math.hypot(STAIR_LEN, F2 - f1)
+    const under = new THREE.BoxGeometry(2.0, 0.12, rampLen + 0.2)
+    under.rotateX(SLOPE)
+    under.translate(STAIR_MID_LX, (f1 + F2) / 2 - 0.14, (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2)
+    put('wood', under)
+    const rail = new THREE.BoxGeometry(0.09, 0.14, rampLen + 0.4)
+    rail.rotateX(SLOPE)
+    rail.translate(MANSION_STAIR.lx0 + 0.13, (f1 + F2) / 2 + 1.15, (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2)
+    put('timber', rail)
+    const railPost = new THREE.BoxGeometry(0.09, F2 - f1 + 1.0, 7.3)
+    railPost.translate(MANSION_STAIR.lx0 - 0.075, f1 + (F2 - f1 + 1.0) / 2, (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2)
+    put('wood', railPost)
+
+    put('wood', tr(new THREE.BoxGeometry(12.85, 1.0, 0.16), -1.075, F2 + 0.5, MANSION_STAIR.lz0))
+    put('timber', tr(new THREE.BoxGeometry(12.95, 0.1, 0.26), -1.075, F2 + 1.02, MANSION_STAIR.lz0))
+
+    put('wood', tr(new THREE.BoxGeometry(5.2, 0.15, 1.5), 0, F2 - 0.075, -6.75))
+    put('timber', tr(new THREE.BoxGeometry(5.2, 1.0, 0.14), 0, F2 + 0.5, -7.45))
+    put('timber', tr(new THREE.BoxGeometry(0.14, 1.0, 1.5), 2.55, F2 + 0.5, -6.75))
+    put('timber', tr(new THREE.BoxGeometry(0.14, 1.0, 1.5), -2.55, F2 + 0.5, -6.75))
+    for (const px of [2.4, -2.4]) {
+      put('wood', tr(new THREE.BoxGeometry(0.22, F2 + 1.0, 0.22), px, (F2 + 1.0) / 2, -7.3))
+    }
+    put('timber', tr(new THREE.BoxGeometry(2.1, 2.4, 0.1), 0, F2 + 1.15, -hd - 0.02))
+    for (const px of [0.5, -0.5]) {
+      const g = new THREE.PlaneGeometry(0.85, 2.1)
+      g.translate(px, F2 + 1.15, -hd + 0.07)
+      ;(buckets.glass ??= []).push(g)
     }
 
-    put('cream', tr(new THREE.CircleGeometry(1.6, 24).rotateX(-Math.PI / 2), 0, F2 + 0.015, -2.2))
-    put('wood', tr(new THREE.BoxGeometry(1.7, 0.34, 2.4), -2.8, F2 + 0.17, -2.6))
-    put('cream', tr(new THREE.BoxGeometry(1.55, 0.16, 2.25), -2.8, F2 + 0.42, -2.6))
-    put('cream', tr(new THREE.BoxGeometry(0.95, 0.14, 0.5), -2.8, F2 + 0.56, -3.45))
-    put('gold', tr(new THREE.BoxGeometry(1.6, 0.1, 1.3), -2.8, F2 + 0.48, -2.1))
-    put('wood', tr(new THREE.BoxGeometry(1.8, 0.08, 0.8), 2.9, F2 + 0.74, -2.9))
-    for (const [lx, lz] of [
-      [2.15, -3.2],
-      [3.65, -3.2],
-      [2.15, -2.6],
-      [3.65, -2.6],
+    put('cream', tr(new THREE.CircleGeometry(1.6, 24).rotateX(-Math.PI / 2), 0, F2 + 0.015, -3.9))
+    put('wood', tr(new THREE.BoxGeometry(2.6, 0.5, 3.6), -4.8, F2 + 0.25, -4.4))
+    put('cream', tr(new THREE.BoxGeometry(2.4, 0.28, 3.4), -4.8, F2 + 0.55, -4.4))
+    put('cream', tr(new THREE.BoxGeometry(0.9, 0.22, 0.6), -4.8, F2 + 0.72, -5.6))
+    put('red', tr(new THREE.BoxGeometry(2.4, 0.1, 2.1), -4.8, F2 + 0.68, -3.5))
+    put('wood', tr(new THREE.BoxGeometry(1.9, 0.08, 0.9), 2.9, F2 + 0.8, -4.7))
+    for (const [cx, cz] of [
+      [2.1, -5.0],
+      [3.7, -5.0],
+      [2.1, -4.4],
+      [3.7, -4.4],
     ]) {
-      put('wood', tr(new THREE.BoxGeometry(0.08, 0.7, 0.08), lx, F2 + 0.35, lz))
+      put('wood', tr(new THREE.BoxGeometry(0.12, 0.8, 0.12), cx, F2 + 0.4, cz))
     }
-    put('wood', tr(new THREE.BoxGeometry(0.5, 0.9, 0.5), 2.9, F2 + 0.45, -1.9))
-    put('wood', tr(new THREE.BoxGeometry(0.55, 2.0, 2.4), -4.6, F2 + 1.0, 0.8))
+    put('wood', tr(new THREE.CylinderGeometry(0.26, 0.3, 0.5, 8), 2.9, F2 + 0.25, -3.6))
+    put('wood', tr(new THREE.BoxGeometry(0.6, 0.7, 0.08), 2.9, F2 + 0.75, -3.25))
+    put('wood', tr(new THREE.BoxGeometry(0.5, 1.9, 2.2), 7.15, F2 + 0.95, -4.2))
     for (let row = 0; row < 3; row++) {
       for (let j = 0; j < 4; j++) {
         const cols = ['green', 'gold', 'red', 'blue']
-        put(cols[(row + j) % 4], tr(new THREE.BoxGeometry(0.2, 0.32, 0.24), -4.28, F2 + 0.35 + row * 0.48, -0.15 + j * 0.5))
+        put(cols[(row + j) % 4], tr(new THREE.BoxGeometry(0.2, 0.32, 0.44), 7.1, F2 + 0.45 + row * 0.5, -4.95 + j * 0.5))
       }
     }
     put('timber', tr(new THREE.CylinderGeometry(0.04, 0.05, 1.3, 6), 4.3, F2 + 0.65, -3.3))
     put('gold', new THREE.SphereGeometry(0.14, 10, 8).translate(4.3, F2 + 1.35, -3.3))
+
+    put('gold', tr(new THREE.TorusGeometry(0.8, 0.06, 8, 24).rotateX(Math.PI / 2), 0, 5.0, 0.5))
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+      const cx = Math.cos(a) * 0.6
+      const cz = 0.5 + Math.sin(a) * 0.6
+      put('cream', tr(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6), cx, 5.25, cz))
+      put('gold', new THREE.SphereGeometry(0.07, 8, 6).translate(cx, 5.52, cz))
+    }
 
     const merged: { key: string; geo: THREE.BufferGeometry }[] = []
     for (const [k, geos] of Object.entries(buckets)) {
@@ -196,11 +241,11 @@ export function Mansion() {
           </mesh>
         )
       )}
-      <mesh geometry={doorGeo} position={[-0.7, 1.05, MANSION.d / 2 + 0.14]} rotation-y={-1.9} castShadow>
+      <mesh geometry={doorGeo} position={[-1.8, 1.3, MANSION.d / 2 + 0.12]} rotation-y={1.5} castShadow>
         <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
       </mesh>
-      <pointLight position={[4.3, 3.9, -3.3]} intensity={16} distance={8} decay={2} color="#ffd9a0" />
-      <pointLight position={[0, 4.8, 0]} intensity={10} distance={10} decay={2} color="#ffe6c0" />
+      <pointLight position={[0, 4.8, 1.5]} intensity={16} distance={12} decay={2} color="#ffd9a0" />
+      <pointLight position={[0, F2 + 2.4, -3.9]} intensity={12} distance={9} decay={2} color="#ffe6c0" />
     </group>
   )
 }

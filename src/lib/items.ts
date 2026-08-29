@@ -1,8 +1,8 @@
-import { ROCKS, TREES, groundHeight } from './world'
+import { MANSION, ROCKS, TREES, groundHeight, mansionWorld } from './world'
 import { mulberry32 } from './math'
 
-export type PickupType = 'rock' | 'flower' | 'wood'
-export type Item = PickupType | 'fish'
+export type Item = 'rock' | 'flower' | 'wood' | 'fish' | 'food'
+export type PickupType = Item
 
 export type Pickup = {
   id: number
@@ -18,25 +18,26 @@ export type Pickup = {
 }
 
 export const pickups: Pickup[] = []
-export const inv: Record<Item, number> = { rock: 0, flower: 0, wood: 0, fish: 0 }
-export const SLOT_TYPES: Item[] = ['rock', 'flower', 'wood', 'fish']
+export const inv: Record<Item, number> = { rock: 0, flower: 0, wood: 0, fish: 0, food: 0 }
+export const SLOT_TYPES: Item[] = ['rock', 'flower', 'wood', 'fish', 'food']
 export const SLOT_LABELS: Record<Item, string> = {
   rock: 'Rock',
   flower: 'Flower',
   wood: 'Wood',
   fish: 'Fish',
+  food: 'Food',
 }
 export const selected = { slot: 0 }
 
 let nextId = 1
 
-export function spawnPickup(type: PickupType, x: number, z: number) {
+export function spawnPickup(type: Item, x: number, z: number, y?: number) {
   pickups.push({
     id: nextId++,
     type,
     x,
     z,
-    y: groundHeight(x, z) + 0.14,
+    y: y ?? groundHeight(x, z) + 0.14,
     vx: 0,
     vz: 0,
     vy: 0,
@@ -101,4 +102,9 @@ export function aliveCount() {
     [-5.5, 0.5],
   ]
   for (const [x, z] of spots) spawnPickup('flower', x + rng() * 0.4, z + rng() * 0.4)
+
+  const foodA = mansionWorld(-0.4, 1.9)
+  const foodB = mansionWorld(0.4, 1.9)
+  spawnPickup('food', foodA.x, foodA.z, MANSION.floorY + 0.94)
+  spawnPickup('food', foodB.x, foodB.z, MANSION.floorY + 0.94)
 }

@@ -1,5 +1,9 @@
 const keys = new Set<string>()
 const edges = new Set<string>()
+const clickEdges = new Set<number>()
+let mouseDown = false
+let downX = 0
+let downY = 0
 let started = false
 const listeners: (() => void)[] = []
 
@@ -26,6 +30,12 @@ export function consumeEdge(code: string) {
   return has
 }
 
+export function consumeClickEdge(button: number) {
+  const has = clickEdges.has(button)
+  clickEdges.delete(button)
+  return has
+}
+
 let installed = false
 
 export function initInput() {
@@ -41,5 +51,19 @@ export function initInput() {
   window.addEventListener('blur', () => {
     keys.clear()
     edges.clear()
+    clickEdges.clear()
+    mouseDown = false
+  })
+  window.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    mouseDown = true
+    downX = e.clientX
+    downY = e.clientY
+    notifyInput()
+  })
+  window.addEventListener('mouseup', (e) => {
+    if (e.button !== 0 || !mouseDown) return
+    mouseDown = false
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) < 6) clickEdges.add(0)
   })
 }

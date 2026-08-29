@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { useEffect, useState } from 'react'
 import { initInput, onFirstInput } from './lib/input'
+import { LITE } from './lib/flags'
 import { SLOT_LABELS, SLOT_TYPES, inv, selected } from './lib/items'
 import { game } from './lib/world'
 import { World } from './scene/World'
@@ -73,9 +74,9 @@ export default function App() {
   return (
     <>
       <Canvas
-        shadows
-        dpr={[1, 1.75]}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        shadows={!LITE}
+        dpr={LITE ? 1 : [1, 1.75]}
+        gl={{ antialias: !LITE, powerPreference: 'high-performance' }}
         camera={{ fov: 55, near: 0.1, far: 420, position: [8, 7, 26] }}
       >
         <World />
@@ -88,11 +89,12 @@ export default function App() {
         {stats.inside && <span className="badge">HOME SWEET HOME</span>}
       </div>
       <div className={started ? 'intro hide' : 'intro'}>
-        <div className="card">
-          Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
-          <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
-          <kbd>G</kbd> throw · <kbd>1-4</kbd> items · scroll to zoom
-        </div>
+          <div className="card">
+            Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
+            <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
+            <kbd>G</kbd> throw · <kbd>1-5</kbd> items · left-click attack · <kbd>C</kbd> collision
+            shapes · scroll to zoom
+          </div>
       </div>
       {stats.locked && <div className="crosshair" />}
       {stats.nearLabel && !stats.veil && !stats.book && (

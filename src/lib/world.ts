@@ -56,6 +56,7 @@ const PATH_POINTS: [number, number][][] = [
     [-6, -1],
     [-11, -6],
     [-15.6, -10.2],
+    [-17.5, -11.1],
   ],
 ]
 
@@ -94,7 +95,7 @@ export function pathDistance(x: number, z: number) {
 function moundHeight(x: number, z: number) {
   const dx = x - WINDMILL.x
   const dz = z - WINDMILL.z
-  return 3.4 * Math.exp(-(dx * dx + dz * dz) / (2 * 7 * 7))
+  return 4.6 * Math.exp(-(dx * dx + dz * dz) / (2 * 10 * 10))
 }
 
 function terrainRaw(x: number, z: number) {
@@ -108,12 +109,27 @@ export const WINDMILL_Y = terrainRaw(WINDMILL.x, WINDMILL.z)
 
 type Feature = { x: number; z: number; r: number; f: number; target: number }
 
+export const MANSION = { x: -21.5, z: -16, w: 15, d: 12, yaw: 0.82, floorY: 0.25, floor2: 3.3 }
+export const MANSION_STAIR = { lx0: 5.5, lx1: 7.5, lz0: -1.9, lz1: 5.2 }
+const wc = Math.cos(MANSION.yaw)
+const ws = Math.sin(MANSION.yaw)
+
+export function mansionWorld(lx: number, lz: number) {
+  return { x: MANSION.x + lx * wc + lz * ws, z: MANSION.z - lx * ws + lz * wc }
+}
+
+export function mansionLocal(x: number, z: number) {
+  const dx = x - MANSION.x
+  const dz = z - MANSION.z
+  return { lx: wc * dx - ws * dz, lz: ws * dx + wc * dz }
+}
+
 const FEATURES: Feature[] = [
   { x: HOUSE.x, z: HOUSE.z, r: 8.5, f: 5, target: 0 },
   { x: PLAZA.x, z: PLAZA.z, r: 6.5, f: 4, target: 0 },
   { x: WELL.x, z: WELL.z, r: 2.6, f: 2, target: 0 },
-  { x: WINDMILL.x, z: WINDMILL.z, r: 6.5, f: 4, target: WINDMILL_Y },
-  { x: -20, z: -14, r: 9, f: 4, target: 0 },
+  { x: WINDMILL.x, z: WINDMILL.z, r: 9, f: 5.5, target: WINDMILL_Y },
+  { x: MANSION.x, z: MANSION.z, r: 11, f: 5, target: 0 },
 ]
 
 export function terrainHeight(x: number, z: number) {
@@ -144,10 +160,10 @@ export const TREES: Tree[] = []
     const z = Math.sin(a) * r
     if (pathDistance(x, z) < 3) continue
     if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 11) continue
-    if (Math.hypot(x + 20, z + 14) < 12) continue
+    if (Math.hypot(x - MANSION.x, z - MANSION.z) < 14) continue
     if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < 9.5) continue
     if (Math.hypot(x - POND.x, z - POND.z) < 10) continue
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 10) continue
+    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 12) continue
     if (Math.hypot(x - WELL.x, z - WELL.z) < 4) continue
     if (Math.hypot(x - SPAWN.x, z - SPAWN.z) < 6) continue
     if (TREES.some((t) => Math.hypot(t.x - x, t.z - z) < 6.5)) continue
@@ -179,10 +195,10 @@ export const ROCKS: Rock[] = []
     const z = Math.sin(a) * r
     if (pathDistance(x, z) < 2) continue
     if (Math.hypot(x - HOUSE.x, z - HOUSE.z) < 7.5) continue
-    if (Math.hypot(x + 20, z + 14) < 8.5) continue
+    if (Math.hypot(x - MANSION.x, z - MANSION.z) < 12.5) continue
     if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < 7.5) continue
     if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 2.5) continue
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 7) continue
+    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 10) continue
     if (Math.hypot(x - WELL.x, z - WELL.z) < 2.5) continue
     if (TREES.some((t) => Math.hypot(t.x - x, t.z - z) < 2.5)) continue
     if (ROCKS.some((k) => Math.hypot(k.x - x, k.z - z) < 3)) continue
@@ -257,11 +273,14 @@ export const MILL = {
   z: WINDMILL.z,
   yaw: -0.6435,
   base: WINDMILL_Y,
-  top: 3.6,
-  rWall: 2.9,
-  rIn: 2.55,
-  rCenter: 1.5,
+  top: 5.2,
+  rWall: 4.1,
+  rIn: 3.6,
+  rCenter: 0.55,
+  doorPhi: 0.45,
+  topPhi: 0.45,
 }
+export const MILL_ARC = Math.PI * 2 - 2 * MILL.doorPhi - MILL.topPhi
 const mc = Math.cos(MILL.yaw)
 const ms = Math.sin(MILL.yaw)
 
@@ -275,32 +294,18 @@ export function millLocal(x: number, z: number) {
   return { lx: mc * dx - ms * dz, lz: ms * dx + mc * dz }
 }
 
-export const MANSION = { x: -20, z: -14, w: 10, d: 8, yaw: 0.82, floorY: 0.22, floor2: 2.95 }
-const wc = Math.cos(MANSION.yaw)
-const ws = Math.sin(MANSION.yaw)
-
-export function mansionWorld(lx: number, lz: number) {
-  return { x: MANSION.x + lx * wc + lz * ws, z: MANSION.z - lx * ws + lz * wc }
-}
-
-export function mansionLocal(x: number, z: number) {
-  const dx = x - MANSION.x
-  const dz = z - MANSION.z
-  return { lx: wc * dx - ws * dz, lz: ws * dx + wc * dz }
-}
-
 type Walkable = { x: number; z: number; inner?: number; r: number; h: number }
 const WALKABLES: Walkable[] = [
   { x: FOUNTAIN.x, z: FOUNTAIN.z, r: 1.7, h: 0.48 },
   { x: FOUNTAIN.x, z: FOUNTAIN.z, inner: 1.7, r: 2.0, h: 0.56 },
   { x: WELL.x, z: WELL.z, inner: 0.7, r: 1.1, h: 0.78 },
-  { x: millWorld(0, 0).x, z: millWorld(0, 0).z, r: 0.72, h: MILL.base + 0.38 },
+  { x: millWorld(0, 0).x, z: millWorld(0, 0).z, r: 0.78, h: MILL.base + 0.5 },
 ]
 for (const k of ROCKS) {
   WALKABLES.push({ x: k.x, z: k.z, r: k.s * 0.72, h: k.y + k.s * k.sq * 0.6 })
 }
 
-export function groundHeight(x: number, z: number) {
+export function groundHeight(x: number, z: number, curY = Infinity) {
   let h = terrainHeight(x, z)
   const hl = houseLocal(x, z)
   const fm = 1 - smoothstep(3.3, 3.7, Math.max(Math.abs(hl.lx), Math.abs(hl.lz)))
@@ -308,27 +313,24 @@ export function groundHeight(x: number, z: number) {
   const ml = millLocal(x, z)
   const d = Math.hypot(ml.lx, ml.lz)
   if (d < MILL.rIn) {
-    if (d < MILL.rCenter) {
+    const phi0 = Math.atan2(-ml.lx, ml.lz)
+    const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
+    if (phi < MILL.doorPhi || phi > Math.PI * 2 - MILL.doorPhi) {
       h = Math.max(h, MILL.base + 0.02)
+    } else if (phi > Math.PI * 2 - MILL.doorPhi - MILL.topPhi) {
+      h = Math.max(h, MILL.base + MILL.top)
     } else {
-      const phi0 = Math.atan2(-ml.lx, ml.lz)
-      const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
-      if (phi > 0.35 && phi < Math.PI * 2 - 0.35) {
-        h = Math.max(h, MILL.base + 0.02 + ((phi - 0.35) / (Math.PI * 2 - 0.7)) * (MILL.top - 0.02))
-      } else if (phi >= Math.PI * 2 - 0.35) {
-        h = Math.max(h, MILL.base + MILL.top)
-      } else {
-        h = Math.max(h, MILL.base + 0.02)
-      }
+      h = Math.max(h, MILL.base + 0.02 + ((phi - MILL.doorPhi) / MILL_ARC) * (MILL.top - 0.02))
     }
   }
   const mn = mansionLocal(x, z)
   if (Math.abs(mn.lx) < MANSION.w / 2 && Math.abs(mn.lz) < MANSION.d / 2) {
-    if (mn.lx > 2.25 && mn.lx < 3.55 && mn.lz > -0.3 && mn.lz < 3.5) {
-      const t = clamp((3.5 - mn.lz) / 3.8, 0, 1)
+    const st = MANSION_STAIR
+    if (mn.lx > st.lx0 && mn.lx < st.lx1 && mn.lz > st.lz0 && mn.lz < st.lz1) {
+      const t = clamp((st.lz1 - mn.lz) / (st.lz1 - st.lz0), 0, 1)
       h = Math.max(h, MANSION.floorY + t * (MANSION.floor2 - MANSION.floorY))
-    } else if (mn.lz < -0.4) {
-      h = Math.max(h, MANSION.floor2)
+    } else if (mn.lz < st.lz0) {
+      h = Math.max(h, curY > MANSION.floor2 - 0.6 ? MANSION.floor2 : MANSION.floorY)
     } else {
       h = Math.max(h, MANSION.floorY)
     }
@@ -343,59 +345,99 @@ export function groundHeight(x: number, z: number) {
 {
   const md = MANSION.d / 2
   const mw = MANSION.w / 2
+  const f1 = MANSION.floorY
+  const F2 = MANSION.floor2
+  const st = MANSION_STAIR
   const addMBox = (lx: number, lz: number, hw: number, hd: number, top?: number, y0?: number) => {
     const w = mansionWorld(lx, lz)
     COLLIDERS.push({ t: 'b', x: w.x, z: w.z, hw, hd, yaw: MANSION.yaw, top, y0 })
   }
-  addMBox(-mw / 2 - 0.35, md, 2.15, 0.12)
-  addMBox(mw / 2 + 0.35, md, 2.15, 0.12)
-  addMBox(0, -md, mw, 0.12)
+  addMBox(-4.65, md, 2.85, 0.12)
+  addMBox(3.75, md, 3.75, 0.12)
+  addMBox(-0.9, md, 0.9, 0.12, undefined, 2.6)
+  addMBox(0, -md, mw, 0.12, F2)
+  addMBox(-4.225, -md, 3.275, 0.12, undefined, F2)
+  addMBox(4.225, -md, 3.275, 0.12, undefined, F2)
+  addMBox(0, -md, 0.95, 0.12, undefined, F2 + 2.3)
   addMBox(-mw, 0, 0.12, md)
   addMBox(mw, 0, 0.12, md)
-  COLLIDERS.push({ t: 'c', x: mansionWorld(0, 1.5).x, z: mansionWorld(0, 1.5).z, r: 1.0, top: 0.69 })
+  addMBox(st.lx0 - 0.075, (st.lz0 + st.lz1) / 2, 0.075, (st.lz1 - st.lz0) / 2, F2 + 1.0, f1)
+  addMBox(-1.075, st.lz0, 6.425, 0.08, F2 + 1.0, F2)
+  addMBox(0, -7.45, 2.6, 0.08, F2 + 1.0, F2)
+  addMBox(2.55, -6.75, 0.08, 0.75, F2 + 1.0, F2)
+  addMBox(-2.55, -6.75, 0.08, 0.75, F2 + 1.0, F2)
   for (const [px, pz] of [
-    [-1.5, 2.7],
-    [1.5, 2.7],
-    [0, 0.1],
+    [2.4, -7.3],
+    [-2.4, -7.3],
   ]) {
     const s = mansionWorld(px, pz)
-    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3, top: 0.44 })
+    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.12, top: F2 + 1.0 })
   }
-  addMBox(-4.55, -2, 0.3, 1.4)
+  addMBox(0, 1.5, 1.6, 0.7, f1 + 0.8)
+  for (const [px, pz] of [
+    [1.9, 0.95],
+    [1.9, 2.05],
+    [-1.9, 0.95],
+    [-1.9, 2.05],
+  ]) {
+    const s = mansionWorld(px, pz)
+    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3, top: f1 + 0.55 })
+  }
+  addMBox(-7.0, 0.5, 0.35, 1.5, f1 + 2.4)
   {
-    const s = mansionWorld(4.3, 2.0)
-    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3 })
+    const s = mansionWorld(4.9, 4.6)
+    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.35, top: f1 + 2.4 })
   }
+  for (const [px, pz] of [
+    [-6.8, 5.2],
+    [-6.8, -0.8],
+  ]) {
+    const s = mansionWorld(px, pz)
+    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.4, top: f1 + 0.6 })
+  }
+  addMBox(-4.8, -4.4, 1.3, 1.8, F2 + 0.65, F2)
+  addMBox(2.9, -4.7, 0.95, 0.45, F2 + 0.8, F2)
   {
-    const s = mansionWorld(-3.9, 3.2)
-    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3 })
+    const s = mansionWorld(2.9, -3.6)
+    COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3, top: F2 + 0.5 })
   }
-  addMBox(-2.8, -2.6, 0.8, 1.2, MANSION.floor2 + 0.5, MANSION.floor2)
-  addMBox(2.9, -2.9, 0.9, 0.4, MANSION.floor2 + 0.78, MANSION.floor2)
-  addMBox(-4.55, 0.8, 0.3, 1.2, undefined, MANSION.floor2)
 }
 
 const bedW = houseWorld(-2.4, -1.5)
-const tableW = houseWorld(1.9, 0.8)
-const bed2W = mansionWorld(-2.8, -2.6)
+const bed2W = mansionWorld(-4.8, -4.4)
+const bookW = houseWorld(1.9, 0.8)
+const stool1W = houseWorld(2.6, 0.2)
+const stool2W = houseWorld(2.5, 1.4)
+const mstool1W = mansionWorld(1.9, 0.95)
+const mstool2W = mansionWorld(1.9, 2.05)
+const mstool3W = mansionWorld(-1.9, 0.95)
+const mstool4W = mansionWorld(-1.9, 2.05)
+const mchairW = mansionWorld(2.9, -3.6)
 export const INTERACTABLES = [
   { id: 'bed', x: bedW.x, z: bedW.z, label: 'Sleep in the bed', r: 1.35 },
-  { id: 'book', x: tableW.x, z: tableW.z, label: 'Read the book', r: 1.15 },
-  { id: 'bed2', x: bed2W.x, z: bed2W.z, label: 'Sleep in the grand bed', r: 1.35 },
+  { id: 'book', x: bookW.x, z: bookW.z, label: 'Read the book', r: 1.4 },
+  { id: 'bed2', x: bed2W.x, z: bed2W.z, label: 'Sleep in the grand bed', r: 1.8 },
+]
+export const SEATS = [
+  { x: stool1W.x, z: stool1W.z, y: 0.61 },
+  { x: stool2W.x, z: stool2W.z, y: 0.61 },
+  { x: mstool1W.x, z: mstool1W.z, y: MANSION.floorY + 0.55 },
+  { x: mstool2W.x, z: mstool2W.z, y: MANSION.floorY + 0.55 },
+  { x: mstool3W.x, z: mstool3W.z, y: MANSION.floorY + 0.55 },
+  { x: mstool4W.x, z: mstool4W.z, y: MANSION.floorY + 0.55 },
+  { x: mchairW.x, z: mchairW.z, y: MANSION.floor2 + 0.5 },
 ]
 
 {
-  for (let i = 0; i < 20; i++) {
-    const theta = (i / 20) * Math.PI * 2
-    const wrapped = theta > Math.PI ? theta - Math.PI * 2 : theta
-    if (Math.abs(wrapped) < 0.42) continue
-    const p = millWorld(Math.sin(theta) * 2.9, Math.cos(theta) * 2.9)
-    COLLIDERS.push({ t: 'b', x: p.x, z: p.z, hw: 0.48, hd: 0.14, yaw: wrapped })
+  const hw = 0.5
+  const halfA = Math.atan2(hw, MILL.rWall)
+  const clear = 0.195
+  for (let a = clear + halfA; a <= Math.PI * 2 - clear - halfA + 1e-9; a += 2 * halfA) {
+    const p = millWorld(Math.sin(a) * MILL.rWall, Math.cos(a) * MILL.rWall)
+    COLLIDERS.push({ t: 'b', x: p.x, z: p.z, hw, hd: 0.16, yaw: a })
   }
   const pole = millWorld(0, 0)
-  COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.22 })
-  const stone = millWorld(0, 0)
-  COLLIDERS.push({ t: 'c', x: stone.x, z: stone.z, r: 0.78, top: MILL.base + 0.38 })
+  COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.3 })
 }
 
 export const game = {
@@ -419,6 +461,8 @@ export const game = {
   interior3: 0,
   tool: '',
   chop: 0,
+  buff: 0,
+  buffT: 0,
   sleepVeil: 0,
   sleepT: 0,
   sleeping: false,
@@ -435,6 +479,8 @@ export const game = {
   inside: false,
   interior: 0,
   windmill: 0,
+  attack: 0,
+  showColliders: false,
   fps: 60,
   grass: 0,
   drawCalls: 0,
@@ -442,12 +488,13 @@ export const game = {
   trees: TREES.length,
   rocks: ROCKS.length,
   teleport(x: number, z: number) {
+    const prev = this.y
     this.x = x
     this.z = z
     this.vx = 0
     this.vz = 0
     this.vy = 0
-    this.y = groundHeight(x, z)
+    this.y = groundHeight(x, z, prev)
     this.grounded = true
     this.mode = 'walk'
   },

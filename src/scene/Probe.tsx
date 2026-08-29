@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { aliveCount, inv, selected } from '../lib/items'
-import { game, houseLocal, mansionLocal, MILL } from '../lib/world'
+import { game, houseLocal, mansionLocal, millLocal, MILL } from '../lib/world'
 
 const round = (v: number) => Math.round(v * 1000) / 1000
 
@@ -32,13 +32,18 @@ export function Probe() {
         lz: round(houseLocal(game.x, game.z).lz),
         mlx: round(mansionLocal(game.x, game.z).lx),
         mlz: round(mansionLocal(game.x, game.z).lz),
+        mllx: round(millLocal(game.x, game.z).lx),
+        mllz: round(millLocal(game.x, game.z).lz),
         inside: game.inside,
         insideMansion: game.insideMansion,
         mode: game.mode,
         grounded: game.grounded,
         sprint: round(game.sprint),
+        buff: round(game.buff),
         tool: game.tool,
         chop: round(game.chop),
+        attack: round(game.attack),
+        colliders: game.showColliders,
         near: game.near,
         nearLabel: game.nearLabel,
         fishing: game.fishing,

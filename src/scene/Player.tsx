@@ -2,17 +2,19 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { resolveCollisions } from '../lib/collide'
-import { consumeEdge, isDown } from '../lib/input'
+import { consumeClickEdge, consumeEdge, isDown } from '../lib/input'
 import { clamp, damp, dampAngle } from '../lib/math'
 import {
   INTERACTABLES,
   MANSION,
   MILL,
   POND,
+  SEATS,
   TREES,
   WORLD_R,
   game,
   groundHeight,
+  houseLocal,
   mansionLocal,
 } from '../lib/world'
 import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } from '../lib/items'
@@ -26,8 +28,8 @@ export function Player() {
   const legL = useRef<THREE.Group>(null!)
   const legR = useRef<THREE.Group>(null!)
   const axe = useRef<THREE.Group>(null!)
-  const rod = useRef<THREE.Group>(null!)
-  const bobber = useRef<THREE.Group>(null!)
+  const sword = useRef<THREE.Group>(null!)
+  const held = useRef<THREE.Group>(null!)
   const walk = useRef(0)
   const squash = useRef(0)
   const lastW = useRef(-1)
@@ -37,8 +39,11 @@ export function Player() {
   const castTime = useRef(3)
   const biteT = useRef(0)
   const pkRef = useRef<ReturnType<typeof nearestPickup>>(null)
+  const seatRef = useRef<(typeof SEATS)[number] | null>(null)
+  const sitReturn = useRef({ x: 0, z: 0, heading: 0 })
   const chopUntil = useRef(0)
   const woodGiven = useRef(false)
+  const attackUntil = useRef(0)
 
   useFrame((_, delta) => {
     const raw = Math.min(delta, 0.5)
@@ -54,7 +59,7 @@ export function Player() {
     const spaceEdge = consumeEdge('Space')
     const eEdge = consumeEdge('KeyE')
     const gEdge = consumeEdge('KeyG')
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       if (consumeEdge(`Digit${i + 1}`)) selected.slot = i
     }
 
@@ -72,8 +77,44 @@ export function Player() {
       game.sleepVeil = Math.max(0, game.sleepVeil - raw * 2)
     }
     if (game.toastT > 0) game.toastT -= raw
+    if (game.buffT > 0) game.buffT -= raw
+    game.buff = damp(game.buff, game.buffT > 0 ? 1 : 0, 6, raw)
 
     const uiOpen = game.book || game.sleeping
+
+    if (game.mode === 'sit') {
+      const stand =
+        consumeEdge('KeyE') || consumeEdge('Space') || consumeEdge('KeyW') || consumeEdge('KeyA') ||
+        consumeEdge('KeyS') || consumeEdge('KeyD')
+      consumeEdge('KeyG')
+      for (let i = 0; i < 5; i++) consumeEdge(`Digit${i + 1}`)
+      if (stand) {
+        game.mode = 'walk'
+        game.x = sitReturn.current.x
+        game.z = sitReturn.current.z
+        game.y = groundHeight(game.x, game.z, game.y)
+        game.grounded = true
+        game.vx = 0
+        game.vz = 0
+        game.vy = 0
+      }
+      root.current.position.set(game.x, game.y, game.z)
+      root.current.rotation.y = game.heading
+      legL.current.rotation.x = 1.3
+      legR.current.rotation.x = 1.3
+      armL.current.rotation.x = -0.25
+      armR.current.rotation.x = -0.25
+      body.current.position.y = 0
+      body.current.rotation.x = 0
+      body.current.scale.set(1, 1, 1)
+      game.near = 'sit'
+      game.nearLabel = 'Stand up'
+      game.tool = ''
+      game.attack = 0
+      if (axe.current) axe.current.visible = false
+      if (sword.current) sword.current.visible = false
+      return
+    }
 
     if (gEdge && !uiOpen && !game.fishing && game.mode === 'walk') {
       const type = SLOT_TYPES[selected.slot]
@@ -121,6 +162,23 @@ export function Player() {
         game.bite = false
         fishT.current = 0
         castTime.current = 2 + rng.current() * 2.5
+      } else if (game.near === 'sit' && seatRef.current) {
+        sitReturn.current = { x: game.x, z: game.z, heading: game.heading }
+        game.x = seatRef.current.x
+        game.z = seatRef.current.z
+        game.y = seatRef.current.y - 0.32
+        game.mode = 'sit'
+        game.vx = 0
+        game.vz = 0
+        game.vy = 0
+        game.grounded = false
+        game.tool = ''
+        if (axe.current) axe.current.visible = false
+      } else if (selected.slot === 4 && inv.food > 0) {
+        inv.food--
+        game.buffT = 10
+        game.toast = 'Yum! Feeling energetic'
+        game.toastT = 2
       }
     }
 
@@ -135,6 +193,19 @@ export function Player() {
     } else {
       game.chop = 0
     }
+
+    if (
+      consumeClickEdge(0) &&
+      !uiOpen &&
+      !game.fishing &&
+      game.mode !== 'sit' &&
+      game.chop === 0 &&
+      attackUntil.current <= game.time
+    ) {
+      attackUntil.current = game.time + 0.45
+    }
+    game.attack = attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / 0.45 : 0
+    const attacking = game.attack > 0
 
     if (game.fishing) {
       if (!game.bite) {
@@ -171,7 +242,8 @@ export function Player() {
     const sprinting = !frozen && (ctrl || isDown('ShiftLeft', 'ShiftRight') || sprintLatch.current) && f > 0
     game.sprint = damp(game.sprint, sprinting ? 1 : 0, 8, raw)
     const inPond = Math.hypot(game.x - POND.x, game.z - POND.z) < 4.6
-    const speed = inPond ? 2.0 : sprinting ? 6.2 : 3.4
+    const fed = game.buffT > 0
+    const speed = inPond ? 2.0 : sprinting ? (fed ? 7.4 : 6.2) : fed ? 4.2 : 3.4
     const tx = moving ? dx * speed : 0
     const tz = moving ? dz * speed : 0
 
@@ -182,9 +254,9 @@ export function Player() {
       game.vz = damp(game.vz, tz, 10, sdt)
       let nx = game.x + game.vx * sdt
       let nz = game.z + game.vz * sdt
-      if (game.grounded && groundHeight(nx, nz) > game.y + 0.55) {
-        if (groundHeight(nx, game.z) <= game.y + 0.55) nz = game.z
-        else if (groundHeight(game.x, nz) <= game.y + 0.55) nx = game.x
+      if (game.grounded && groundHeight(nx, nz, game.y) > game.y + 0.55) {
+        if (groundHeight(nx, game.z, game.y) <= game.y + 0.55) nz = game.z
+        else if (groundHeight(game.x, nz, game.y) <= game.y + 0.55) nx = game.x
         else {
           nx = game.x
           nz = game.z
@@ -200,7 +272,7 @@ export function Player() {
       game.z = nz
     }
 
-    const gh = groundHeight(game.x, game.z)
+    const gh = groundHeight(game.x, game.z, game.y)
     if (spaceEdge && game.grounded && !frozen) {
       game.vy = 5.2
       game.grounded = false
@@ -222,6 +294,9 @@ export function Player() {
     game.mode = game.grounded ? 'walk' : 'air'
 
     const mn = mansionLocal(game.x, game.z)
+    const hl = houseLocal(game.x, game.z)
+    game.inside = Math.abs(hl.lx) < 3.4 && Math.abs(hl.lz) < 2.9
+    game.interior = damp(game.interior, game.inside ? 1 : 0, 4, raw)
     game.insideMansion = Math.abs(mn.lx) < MANSION.w / 2 - 0.1 && Math.abs(mn.lz) < MANSION.d / 2 - 0.1
     game.interior2 = damp(game.interior2, game.insideMansion ? 1 : 0, 4, raw)
     const mdMill = Math.hypot(game.x - MILL.x, game.z - MILL.z)
@@ -251,6 +326,7 @@ export function Player() {
       armL.current.rotation.x = -swing * (0.8 + game.sprint * 0.5)
       if (game.tool === 'rod') armR.current.rotation.x = -1.0
       else if (chopping) armR.current.rotation.x = -1.6 + Math.sin(game.chop * Math.PI * 4) * 1.2
+      else if (attacking) armR.current.rotation.x = -0.5 - Math.sin(game.attack * Math.PI) * 1.9
       else armR.current.rotation.x = swing * (0.8 + game.sprint * 0.5)
       body.current.position.y =
         Math.abs(Math.cos(walk.current)) * (0.045 + game.sprint * 0.02) * k + Math.sin(game.time * 2) * 0.012
@@ -260,15 +336,6 @@ export function Player() {
 
     root.current.position.set(game.x, game.y, game.z)
     root.current.rotation.y = game.heading
-
-    game.tool = game.fishing ? 'rod' : chopping ? 'axe' : ''
-    if (axe.current) axe.current.visible = game.tool === 'axe'
-    if (rod.current) rod.current.visible = game.tool === 'rod'
-    if (bobber.current) {
-      bobber.current.position.y = game.bite ? -0.22 : Math.sin(game.time * 3) * 0.04
-      const fishOn = bobber.current.children[1] as THREE.Mesh
-      fishOn.visible = game.bite
-    }
 
     let near = ''
     let nearLabel = ''
@@ -283,6 +350,15 @@ export function Player() {
           best = d
           near = it.id
           nearLabel = it.label
+        }
+      }
+      for (const st of SEATS) {
+        const d = Math.hypot(game.x - st.x, game.z - st.z)
+        if (d < 1.1 && d < best) {
+          best = d
+          near = 'sit'
+          nearLabel = 'Sit down'
+          seatRef.current = st
         }
       }
       pkRef.current = nearestPickup(game.x, game.z)
@@ -313,6 +389,15 @@ export function Player() {
     }
     game.near = near
     game.nearLabel = nearLabel
+
+    game.tool = game.fishing ? 'rod' : chopping || near === 'chop' ? 'axe' : 'sword'
+    if (axe.current) axe.current.visible = game.tool === 'axe'
+    if (sword.current) sword.current.visible = game.tool === 'sword' && game.mode !== 'sit'
+    if (held.current) {
+      const show = !game.fishing && game.mode !== 'sit' && inv[SLOT_TYPES[selected.slot]] > 0
+      held.current.visible = show
+      for (let i = 0; i < 5; i++) held.current.children[i].visible = show && i === selected.slot
+    }
   })
 
   const ramp = getToonRamp()
@@ -360,31 +445,63 @@ export function Player() {
               <meshToonMaterial color="#8d8578" gradientMap={ramp} />
             </mesh>
           </group>
-          <group ref={rod} visible={false} position={[0, -0.34, 0.08]} rotation-x={-1.1}>
+          <group ref={sword} visible={false} position={[0, -0.36, 0.05]} rotation-x={0.45}>
+            <mesh castShadow position={[0, 0.07, 0]}>
+              <cylinderGeometry args={[0.026, 0.03, 0.16, 8]} />
+              <meshToonMaterial color="#4a3222" gradientMap={ramp} />
+            </mesh>
+            <mesh castShadow position={[0, 0.17, 0]}>
+              <boxGeometry args={[0.17, 0.035, 0.06]} />
+              <meshToonMaterial color="#d8b56a" gradientMap={ramp} />
+            </mesh>
+            <mesh castShadow position={[0, 0.44, 0]}>
+              <boxGeometry args={[0.055, 0.5, 0.018]} />
+              <meshToonMaterial color="#cfd6dd" gradientMap={ramp} />
+            </mesh>
+            <mesh castShadow position={[0, 0.71, 0]} rotation-x={0}>
+              <coneGeometry args={[0.028, 0.09, 4]} />
+              <meshToonMaterial color="#cfd6dd" gradientMap={ramp} />
+            </mesh>
+          </group>
+          <group position={[0, -0.34, 0.08]} rotation-x={-1.1}>
             <mesh castShadow position={[0, 0.5, 0]}>
               <cylinderGeometry args={[0.018, 0.024, 1.15, 6]} />
               <meshToonMaterial color="#7a5b3a" gradientMap={ramp} />
             </mesh>
-            <mesh position={[0, 1.06, 0.02]}>
-              <cylinderGeometry args={[0.008, 0.008, 0.9, 4]} />
-              <meshBasicMaterial color="#e8e4d8" />
-            </mesh>
-            <group ref={bobber} position={[0, 0.62, 0.02]}>
-              <mesh>
-                <sphereGeometry args={[0.055, 8, 6]} />
-                <meshBasicMaterial color="#e86a3a" toneMapped={false} />
-              </mesh>
-              <mesh visible={false} position={[0, -0.12, 0.14]} rotation-z={1.4}>
-                <coneGeometry args={[0.05, 0.2, 6]} />
-                <meshToonMaterial color="#5fb8c9" gradientMap={ramp} />
-              </mesh>
-            </group>
           </group>
         </group>
         <group ref={legL} position={[-0.13, 0.38, 0]}>
           <mesh castShadow position={[0, -0.17, 0]}>
             <capsuleGeometry args={[0.09, 0.2, 4, 8]} />
             <meshToonMaterial color="#4a5a6a" gradientMap={ramp} />
+          </mesh>
+        </group>
+        <group ref={held} visible={false} position={[0, -0.36, 0.07]}>
+          <mesh castShadow>
+            <dodecahedronGeometry args={[0.09]} />
+            <meshToonMaterial color="#9a958c" gradientMap={ramp} />
+          </mesh>
+          <group>
+            <mesh position={[0, 0.07, 0]}>
+              <cylinderGeometry args={[0.018, 0.022, 0.14, 6]} />
+              <meshToonMaterial color="#5d8f3a" gradientMap={ramp} />
+            </mesh>
+            <mesh position={[0, 0.16, 0]}>
+              <sphereGeometry args={[0.055, 8, 6]} />
+              <meshToonMaterial color="#f0a8c0" gradientMap={ramp} />
+            </mesh>
+          </group>
+          <mesh castShadow rotation-x={Math.PI / 2}>
+            <cylinderGeometry args={[0.05, 0.06, 0.3, 7]} />
+            <meshToonMaterial color="#8a6a48" gradientMap={ramp} />
+          </mesh>
+          <mesh rotation-z={1.5}>
+            <coneGeometry args={[0.045, 0.17, 6]} />
+            <meshToonMaterial color="#5fb8c9" gradientMap={ramp} />
+          </mesh>
+          <mesh castShadow rotation-x={0.35}>
+            <cylinderGeometry args={[0.06, 0.075, 0.11, 9]} />
+            <meshToonMaterial color="#d9a05b" gradientMap={ramp} />
           </mesh>
         </group>
         <group ref={legR} position={[0.13, 0.38, 0]}>

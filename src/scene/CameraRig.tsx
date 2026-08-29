@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { clamp, damp, lerp } from '../lib/math'
 import { notifyInput } from '../lib/input'
-import { HOUSE, MANSION, MILL, game, groundHeight } from '../lib/world'
+import { HOUSE, MANSION, MILL, game, groundHeight, houseLocal, houseWorld, mansionLocal, mansionWorld } from '../lib/world'
 
 function obbExit(
   px: number,
@@ -136,11 +136,39 @@ export function CameraRig() {
     look.current.y = damp(look.current.y, ty, 12, dt)
     look.current.z = damp(look.current.z, tz, 12, dt)
 
-    pos.current.y = Math.max(pos.current.y, groundHeight(pos.current.x, pos.current.z) + 0.35, 0.55)
-    if (game.interior > 0.02) pos.current.y = Math.min(pos.current.y, lerp(pos.current.y, 2.55, game.interior))
-    if (game.interior2 > 0.02) pos.current.y = Math.min(pos.current.y, lerp(pos.current.y, 5.5, game.interior2))
-    if (game.interior3 > 0.02) {
-      pos.current.y = Math.min(pos.current.y, lerp(pos.current.y, MILL.base + 7.7, game.interior3))
+    pos.current.y = Math.max(pos.current.y, groundHeight(pos.current.x, pos.current.z, pos.current.y) + 0.35, 0.55)
+    if (game.interior > 0.5) {
+      const l = houseLocal(pos.current.x, pos.current.z)
+      const clx = clamp(l.lx, -3.15, 3.15)
+      const clz = clamp(l.lz, -2.65, 2.65)
+      if (clx !== l.lx || clz !== l.lz) {
+        const w = houseWorld(clx, clz)
+        pos.current.x = w.x
+        pos.current.z = w.z
+      }
+      pos.current.y = Math.min(pos.current.y, 2.55)
+    }
+    if (game.interior2 > 0.5) {
+      const m = mansionLocal(pos.current.x, pos.current.z)
+      const cmx = clamp(m.lx, -MANSION.w / 2 + 0.35, MANSION.w / 2 - 0.35)
+      const cmz = clamp(m.lz, -MANSION.d / 2 + 0.35, MANSION.d / 2 - 0.35)
+      if (cmx !== m.lx || cmz !== m.lz) {
+        const w = mansionWorld(cmx, cmz)
+        pos.current.x = w.x
+        pos.current.z = w.z
+      }
+      pos.current.y = Math.min(pos.current.y, MANSION.floor2 + 2.5)
+    }
+    if (game.interior3 > 0.5) {
+      const mdx = pos.current.x - MILL.x
+      const mdz = pos.current.z - MILL.z
+      const dd = Math.hypot(mdx, mdz)
+      const cap = MILL.rIn - 0.25
+      if (dd > cap) {
+        pos.current.x = MILL.x + (mdx / dd) * cap
+        pos.current.z = MILL.z + (mdz / dd) * cap
+      }
+      pos.current.y = Math.min(pos.current.y, MILL.base + MILL.top + 5.5)
     }
 
     camera.position.copy(pos.current)

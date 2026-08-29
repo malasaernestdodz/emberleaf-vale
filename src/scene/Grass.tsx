@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mulberry32 } from '../lib/math'
+import { LITE } from '../lib/flags'
 import {
   FOUNTAIN,
   PLAZA,
@@ -17,7 +18,7 @@ import {
   terrainHeight,
 } from '../lib/world'
 
-const GRASS_N = 70000
+const GRASS_N = LITE ? 12000 : 70000
 
 const grassVert = /* glsl */ `
 attribute vec3 aOffset;
@@ -128,9 +129,9 @@ export function Grass() {
       const hl = houseLocal(x, z)
       if (Math.abs(hl.lx) < 4.4 && Math.abs(hl.lz) < 3.9) continue
       if (Math.hypot(x - POND.x, z - POND.z) < 6.6) continue
-      if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 5.2) continue
+      if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 7.5) continue
       const mnl = mansionLocal(x, z)
-      if (Math.abs(mnl.lx) < 6.3 && Math.abs(mnl.lz) < 5.5) continue
+      if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 6.9) continue
       if (Math.hypot(x - WELL.x, z - WELL.z) < 1.6) continue
       let near = false
       for (const t of TREES) {

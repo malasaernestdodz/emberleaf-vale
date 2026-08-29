@@ -1,9 +1,11 @@
+import { LITE } from '../lib/flags'
+
 export function Lights() {
   return (
     <>
       <hemisphereLight args={['#bfe3ff', '#8a7a55', 1.1]} />
       <directionalLight
-        castShadow
+        castShadow={!LITE}
         position={[26, 42, 14]}
         intensity={3}
         color="#fff2d8"

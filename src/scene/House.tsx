@@ -105,7 +105,7 @@ export function House() {
     spout.rotateZ(1.1)
     spout.translate(2.12, 0.78, 0.8)
     put('red', spout)
-    put('blue', tr(new THREE.BoxGeometry(0.22, 0.05, 0.16), 2.35, 0.585, 0.72, 0.5))
+    put('blue', tr(new THREE.BoxGeometry(0.22, 0.05, 0.16), 2.5, 0.585, 0.72, 0.5))
     put('wood', tr(new THREE.CylinderGeometry(0.22, 0.26, 0.42, 8), 2.6, 0.21, 0.2))
     put('wood', tr(new THREE.CylinderGeometry(0.22, 0.26, 0.42, 8), 2.5, 0.21, 1.4))
 
