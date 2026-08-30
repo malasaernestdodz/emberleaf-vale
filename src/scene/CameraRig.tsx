@@ -144,6 +144,20 @@ export function CameraRig() {
       pos.current.y = Math.min(pos.current.y, MILL.base + MILL.top + 5.5)
     }
 
+    const holdClear = (tIn: number, roofY: number) => {
+      const dx = pos.current.x - tx
+      const dz = pos.current.z - tz
+      if (tIn >= 1 || (dx === 0 && dz === 0)) return
+      if (Math.min(pos.current.y, ty + (pos.current.y - ty) * tIn) >= roofY) return
+      const s = Math.max(tIn - 0.08, 0)
+      pos.current.x = tx + dx * s
+      pos.current.y = ty + (pos.current.y - ty) * s
+      pos.current.z = tz + dz * s
+    }
+    holdClear(obbWall(tx, tz, pos.current.x - tx, pos.current.z - tz, HOUSE.x, HOUSE.z, HOUSE.w / 2, HOUSE.d / 2, HOUSE.yaw, 0), HOUSE.h + 0.1)
+    holdClear(obbWall(tx, tz, pos.current.x - tx, pos.current.z - tz, MANSION.x, MANSION.z, MANSION.w / 2, MANSION.d / 2, MANSION.yaw, 0), MANSION.floor2 + 3.1)
+    holdClear(circleWall(tx, tz, pos.current.x - tx, pos.current.z - tz, MILL.x, MILL.z, MILL.rWall + 0.18), MILL.base + MILL.top + 0.2)
+
     camera.position.copy(pos.current)
     camera.lookAt(look.current)
     const targetFov = 55 + game.sprint * 8
