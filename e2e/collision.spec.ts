@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  COLLIDERS,
   HOUSE,
   MANSION,
   MANSION_BALCONY,
@@ -7,10 +8,13 @@ import {
   MANSION_STAIRWELL,
   MILL,
   MILL_BALCONY,
+  MILL_TOWER,
+  MILL_WALL_HW,
   houseRoofY,
   houseWorld,
   mansionWorld,
   millWorld,
+  type Collider,
 } from '../src/lib/world'
 
 type Snap = {
@@ -496,6 +500,45 @@ test('the vista balcony ends the windmill climb with a working quest', async ({ 
   expect(Math.hypot(r.mllx, r.mllz)).toBeLessThan(MILL_BALCONY.r1 - 0.15)
   expect(r.grounded).toBe(true)
   await page.screenshot({ path: 'test-results/collision-windmill-balcony.png' })
+})
+
+test('enclosed shell caps balcony-arc colliders at deck height and stops porch walk-ins', async ({ page }) => {
+  const halfA = Math.atan2(MILL_WALL_HW, MILL.rWall)
+  const arcEdge = Math.PI * 2 - MILL_BALCONY.phi0 + halfA
+  const ring = COLLIDERS.filter(
+    (c): c is Extract<Collider, { t: 'b' }> =>
+      c.t === 'b' && Math.abs((c.y0 ?? Number.NaN) - (MILL.base + MILL.floorH)) < 0.05
+  )
+  expect(ring.length).toBeGreaterThan(20)
+  const arc = ring.filter((c) => c.yaw < arcEdge)
+  const rest = ring.filter((c) => c.yaw >= arcEdge)
+  expect(arc.length).toBeGreaterThan(0)
+  expect(rest.length).toBeGreaterThan(0)
+  const midPhi = (MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2
+  expect(arc.some((c) => Math.abs(c.yaw - (Math.PI * 2 - midPhi)) <= halfA)).toBe(true)
+  for (const c of arc) expect(Math.abs(c.top! - (MILL.base + MILL.top))).toBeLessThanOrEqual(0.1)
+  for (const c of rest) expect(Math.abs(c.top! - (MILL.base + 0.6 + MILL_TOWER.h))).toBeLessThanOrEqual(0.1)
+  const h = await api(page)
+  const start = millWorld(-Math.sin(midPhi) * 7.0, Math.cos(midPhi) * 7.0)
+  const target = millWorld(-Math.sin(midPhi) * 3.5, Math.cos(midPhi) * 3.5)
+  await page.evaluate(({ a, x, z }) => a.teleport(x, z), { a: h, x: start.x, z: start.z })
+  await page.waitForTimeout(400)
+  await page.keyboard.down('ArrowUp')
+  let minR = Number.POSITIVE_INFINITY
+  const t0 = (await snap(page)).t
+  for (let i = 0; i < 60; i++) {
+    const s = await snap(page)
+    minR = Math.min(minR, Math.hypot(s.mllx, s.mllz))
+    if (s.t - t0 > 12) break
+    await steerTo(page, h, target.x, target.z, 0)
+    await page.waitForTimeout(200)
+  }
+  await page.keyboard.up('ArrowUp')
+  const s = await snap(page)
+  minR = Math.min(minR, Math.hypot(s.mllx, s.mllz))
+  expect(minR).toBeGreaterThan(MILL.rWall)
+  expect(s.y).toBeLessThan(MILL.base + MILL.floorH + 0.4)
+  await page.screenshot({ path: 'test-results/collision-windmill-shell.png' })
 })
 
 test('interior tour keeps the draw-call budget', async ({ page }) => {

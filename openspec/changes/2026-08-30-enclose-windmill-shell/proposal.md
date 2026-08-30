@@ -37,8 +37,19 @@ lintel filled above `openH`); only the windmill shell leaks.
   `top = MILL.base + MILL.top` (deck height) so they block porch-level
   walk-through but sit below the feet of a player crossing the doorway on the
   deck. All other segments keep the full-height top.
-- No changes to `groundHeight`, the balcony deck, rails, jambs, stairs, or the
-  door: the existing walk-in, climb, and vista paths must stay green.
+- **Spiral under-surface (`scene/Windmill.tsx`):** the 34 step boxes get a
+  continuous under-surface (helical ribbon/skirt beneath the treads) so the
+  climb shows no gaps — reported playtest defect "no floor when I go up the
+  staircase".
+- **See-through faces (`scene/Windmill.tsx`):** the roof cone and the
+  ground-floor disc render single-sided the wrong way (sky from inside the
+  tower; floor invisible from below) — both become visible from either side.
+- **Ground door frame (`scene/Windmill.tsx`):** posts, jambs, and leaf derive
+  from `MILL.doorStepW`/`MILL.doorHalf` so the frame fills the wall slit and
+  the leaf hinges at one post — reported defect "no proper door".
+- No changes to `groundHeight` or the walk/collision semantics beyond what
+  the enclosure requires: the existing walk-in, climb, and vista paths must
+  stay green.
 
 ## Impact
 

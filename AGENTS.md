@@ -23,18 +23,39 @@ procedural audio with a settings menu, pause menu, perf governor.
 | `npx.cmd playwright test --config=playwright.kilo.config.ts` | Suite on a private port (:4322) — use when another agent/process may hold :4173 |
 
 Gates before declaring any change done: `build` + `lint:sg` + full `test:e2e`
-green, `openspec validate --all --strict` clean.
+green, `openspec validate --all --strict` clean. Changes dated 2026-08-31 or
+later also need a `grilling.md` interview record — `npm run spec:validate`
+enforces it (min 8 answered questions).
 
 ## The validation loop (how work is done here)
 
+0. Grill first: run `/grill-me` on the change — a frontier interview against
+   the root context, agent-answered where facts settle it, user-answered for
+   real decisions, recorded in the change's `grilling.md` and folded back into
+   the proposal/specs (see "Grilling" below). More answered questions is
+   better; never stop at the validator minimum when the frontier isn't empty.
 1. Spec first: add/extend an `openspec/changes/<date>-<name>/` change
-   (proposal → design → specs → tasks) before touching code.
+   (grilling → proposal → design → specs → tasks) before touching code.
 2. Implement against the specs; keep `e2e` as the contract.
 3. Run the gates. Fix everything they surface, then re-run until clean.
 4. Check off `tasks.md` items only after the corresponding verification passes.
 5. `openspec archive` the change when fully landed.
 
 Never mark a task done from intent — only from a passing gate.
+
+## Grilling (mandatory since 2026-08-31)
+
+Every new change gets a `grilling.md`: at least 8 questions the agent asks and
+answers itself, grounded in `openspec/project.md`, `AGENTS.md`, and the
+archived specs, sweeping scope fidelity, model/geometry, animation, collision,
+HUD, audio, interactions, health, persistence, perf, determinism, and the e2e
+contract. Grill toward MORE fidelity to the user's request — when a question
+exposes a gap, widen the spec, never quietly cut scope. `npm run
+spec:validate` fails changes without a compliant `grilling.md`. User-reported
+defects land in `openspec/defects.md` first; `/grill-me` must reconcile every
+open row into the change (including a gallery screenshot sweep — see-through
+faces, missing surfaces under walkable positions, frames narrower than their
+colliders) before the specs are final.
 
 ## Hard rules (enforced by ast-grep, see `rules/`)
 
@@ -80,5 +101,6 @@ Never mark a task done from intent — only from a passing gate.
 
 - `openspec/project.md` — stack, conventions, commands, non-goals.
 - `openspec/changes/<date>-<name>/` — proposal, design, `tasks.md` (checklist),
-  and per-capability `specs/<capability>/spec.md` deltas.
+  `grilling.md` (agent-answered interrogation record), and per-capability
+  `specs/<capability>/spec.md` deltas.
 - `openspec/specs/` — archived capabilities (source of truth for "what is").

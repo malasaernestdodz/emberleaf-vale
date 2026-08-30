@@ -5,11 +5,13 @@ import {
   HOUSE_DOOR,
   MANSION,
   MANSION_DOOR,
+  MILL_BALCONY,
   POND,
   WELL,
   WINDMILL,
   houseWorld,
   mansionWorld,
+  millWorld,
 } from '../src/lib/world'
 
 type Api = {
@@ -96,6 +98,17 @@ const SHOTS: Shot[] = [
     name: 'windmill-door',
     from: { x: WINDMILL.x - 2.0, z: WINDMILL.z + 7.2 },
     to: { x: WINDMILL.x, z: WINDMILL.z },
+  },
+  {
+    name: 'windmill-shell',
+    from: millWorld(
+      -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 7.2,
+      Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 7.2
+    ),
+    to: millWorld(
+      -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 0.5,
+      Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 0.5
+    ),
   },
 ]
 

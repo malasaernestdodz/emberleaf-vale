@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { smoothstep } from '../lib/math'
-import { MANSION, MANSION_BALCONY, MANSION_DOOR, MANSION_SLAB_LZ, MANSION_STAIR, MANSION_STAIRWELL } from '../lib/world'
+import { MANSION, MANSION_BALCONY, MANSION_DOOR, MANSION_PORTICO, MANSION_SLAB_LZ, MANSION_STAIR, MANSION_STAIRWELL } from '../lib/world'
 import { buildDoorLeaf } from './door'
 import { getGlassMaterial, getNoiseNormalMap } from './textures'
 import { getToonRamp } from './toonRamp'
@@ -279,20 +279,20 @@ export function Mansion() {
       put('gold', new THREE.SphereGeometry(0.07, 8, 6).translate(cx, 5.52, cz))
     }
 
-    const px0 = -1.8
-    put('wood', tr(new THREE.BoxGeometry(4.2, 0.18, 2.3), px0, 0.03, hd + 1.05))
-    put('stone', tr(new THREE.BoxGeometry(2.7, 0.1, 0.55), px0, 0.05, hd + 2.4))
-    put('stone', tr(new THREE.BoxGeometry(2.3, 0.1, 0.5), px0, 0.15, hd + 2.28))
+    const P = MANSION_PORTICO
+    put('wood', tr(new THREE.BoxGeometry((P.halfW + 0.4) * 2, 0.18, P.d1 - P.d0 + 0.3), P.cx, 0.03, (P.d0 + P.d1) / 2))
+    put('stone', tr(new THREE.BoxGeometry(P.stepSpan, 0.1, 0.55), P.cx, 0.05, P.d1 + 0.35))
+    put('stone', tr(new THREE.BoxGeometry(P.stepSpan - 0.4, 0.1, 0.5), P.cx, 0.15, P.d1 + 0.23))
     for (const [cx, cz] of [
-      [px0 - 1.7, hd + 0.35],
-      [px0 + 1.7, hd + 0.35],
-      [px0 - 1.7, hd + 1.75],
-      [px0 + 1.7, hd + 1.75],
+      [P.cx - P.halfW, hd + 0.35],
+      [P.cx + P.halfW, hd + 0.35],
+      [P.cx - P.halfW, hd + 1.75],
+      [P.cx + P.halfW, hd + 1.75],
     ]) {
-      put('cream', tr(new THREE.CylinderGeometry(0.13, 0.16, 3.1, 10), cx, 1.66, cz))
-      put('gold', tr(new THREE.BoxGeometry(0.36, 0.1, 0.36), cx, 3.28, cz))
+      put('cream', tr(new THREE.CylinderGeometry(0.13, 0.16, P.colH, 10), cx, 0.11 + P.colH / 2, cz))
+      put('gold', tr(new THREE.BoxGeometry(0.36, 0.1, 0.36), cx, 0.18 + P.colH, cz))
     }
-    put('wood', tr(new THREE.BoxGeometry(4.1, 0.26, 2.25), px0, 3.42, hd + 1.05))
+    put('wood', tr(new THREE.BoxGeometry((P.halfW + 0.35) * 2, 0.26, P.d1 - P.d0 + 0.25), P.cx, P.roofY, (P.d0 + P.d1) / 2))
     put(
       'timber',
       tr(
@@ -302,12 +302,7 @@ export function Mansion() {
         MANSION_DOOR.frameZ
       )
     )
-    put('wood', tr(new THREE.BoxGeometry(4.3, 0.14, 2.4), px0, F2 + 0.07, hd + 1.0))
-    put('wood', tr(new THREE.BoxGeometry(4.3, 0.1, 0.14), px0, F2 + 0.98, hd + 2.1))
-    put('wood', tr(new THREE.BoxGeometry(4.3, 0.09, 0.12), px0, F2 + 0.34, hd + 2.12))
-    for (let i = 0; i < 9; i++) {
-      put('cream', tr(new THREE.BoxGeometry(0.09, 0.52, 0.09), px0 - 1.95 + i * 0.49, F2 + 0.66, hd + 2.08))
-    }
+    put('wood', tr(new THREE.BoxGeometry((P.halfW + 0.45) * 2, 0.14, P.d1 - P.d0 + 0.4), P.cx, F2 + 0.07, (P.d0 + P.d1) / 2))
 
     for (const sx of [-1, 1]) {
       for (let i = 0; i < 8; i++) {

@@ -8,6 +8,13 @@ import { getToonRamp } from './toonRamp'
 const WALL_H = MILL_TOWER.h
 const WALL_TOP_R = 4.5
 const HUB_Y = MILL_TOWER.hubY
+const LINTEL_TOP = 3.87
+const BAND1_H = LINTEL_TOP - 0.6
+const BAND2_H = MILL.top - LINTEL_TOP
+const BAND3_H = WALL_H - BAND1_H - BAND2_H
+const BAND_R = (y: number) => 5.5 + ((WALL_TOP_R - 5.5) * (y - 0.6)) / WALL_H
+const R1 = BAND_R(LINTEL_TOP)
+const R2 = BAND_R(MILL.top)
 
 function buildSails() {
   const parts: THREE.BufferGeometry[] = []
@@ -131,18 +138,27 @@ export function Windmill() {
   const doorPostX = Math.sin(doorHalf) * (MILL.rWall + 0.12)
   const doorPostZ = Math.cos(doorHalf) * (MILL.rWall + 0.12)
   // Cylinder theta runs opposite to the walkable phi convention (theta = -phi),
-  // so the balcony arc [phi0, phi1] opens the wall at cylinder thetas
-  // [2π − phi1, 2π − phi0]; the wall segment covers from that gap's far edge to the door slit.
+  // so the balcony arc [phi0, phi1] opens the upper band at cylinder thetas
+  // [2π − phi0, 2π − phi0 + phi0 + doorHalf]; the length wraps past 2π so the
+  // door slit stays closed above the deck and only the balcony arc shows sky.
   const balcThetaStart = Math.PI * 2 - MILL_BALCONY.phi0
-  const balcThetaLen = MILL_BALCONY.phi0 - MILL.doorHalf
+  const balcThetaLen = MILL_BALCONY.phi0 + MILL.doorHalf
   return (
     <group position={[WINDMILL.x, WINDMILL_Y, WINDMILL.z]} rotation={[0, MILL.yaw, 0]} userData={{ cullId: 'windmill' }}>
       <mesh castShadow receiveShadow position={[0, 0.6, 0]}>
         <cylinderGeometry args={[5.7, 6.1, 1.2, 26]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.6 + WALL_H / 2, 0]}>
-        <cylinderGeometry args={[WALL_TOP_R, 5.5, WALL_H, 30, 1, true, balcThetaStart, balcThetaLen]} />
+      <mesh castShadow receiveShadow position={[0, 0.6 + BAND1_H / 2, 0]}>
+        <cylinderGeometry args={[R1, 5.5, BAND1_H, 30, 1, true, doorHalf, Math.PI * 2 - 2 * doorHalf]} />
+        <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, LINTEL_TOP + BAND2_H / 2, 0]}>
+        <cylinderGeometry args={[R2, R1, BAND2_H, 30, 1, true]} />
+        <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, MILL.top + BAND3_H / 2, 0]}>
+        <cylinderGeometry args={[WALL_TOP_R, R2, BAND3_H, 30, 1, true, balcThetaStart, balcThetaLen]} />
         <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
       <mesh castShadow position={[0, MILL.floorH + 0.03, 0]} rotation-x={-Math.PI / 2}>

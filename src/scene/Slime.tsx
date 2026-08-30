@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { slime, slimeHud, updateSlime } from '../lib/slime'
+import { slime, updateSlime } from '../lib/slime'
 import { endSys } from '../lib/trace'
 import { game } from '../lib/world'
 import { getToonRamp } from './toonRamp'
@@ -58,8 +58,6 @@ export function Slime() {
       ghost.current.position.x = -(FILL_W / 2) * (1 - gf)
       fillMat.current.color.setHex(target > 0.66 ? GREEN : target > 0.33 ? EMBER : WOUND)
     }
-    slimeHud.shown = shown
-    slimeHud.frac = shown ? Math.round(target * 1000) / 1000 : 0
     endSys('slime', t0)
   })
 

@@ -31,6 +31,13 @@ export const slime = {
 
 export const slimeHud = { shown: true, frac: 1 }
 
+function syncSlimeHud() {
+  slimeHud.shown = slime.state !== 'hidden'
+  slimeHud.frac = slimeHud.shown
+    ? Math.round(Math.max(0, slime.hp / slime.maxHp) * 1000) / 1000
+    : 0
+}
+
 export const slimeCollider = { t: 'c' as const, x: slime.x, z: slime.z, r: SLIME_R }
 COLLIDERS.push(slimeCollider)
 
@@ -80,6 +87,7 @@ export function updateSlime(dt: number) {
     }
     slimeCollider.x = slime.x
     slimeCollider.z = slime.z
+    syncSlimeHud()
     return
   }
 
@@ -146,6 +154,7 @@ export function updateSlime(dt: number) {
   slimeCollider.x = slime.x
   slimeCollider.z = slime.z
   slimeCollider.r = SLIME_R
+  syncSlimeHud()
 }
 
 export function applySlimeHit(px: number, pz: number, fx: number, fz: number): 'hit' | 'pop' | null {
@@ -180,8 +189,10 @@ export function applySlimeHit(px: number, pz: number, fx: number, fz: number): '
     slime.vx = 0
     slime.vz = 0
     slime.vy = 0
+    syncSlimeHud()
     return 'pop'
   }
+  syncSlimeHud()
   return 'hit'
 }
 

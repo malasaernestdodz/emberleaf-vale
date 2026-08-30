@@ -1,0 +1,12 @@
+id: cull-id-must-be-literal
+language: TypeScript
+severity: error
+message: userData.cullId must be a string literal so lib/entities.ts and CULL_DEFS can pin the exact id contract.
+note: See openspec entity-audit spec (registry ids match cullId literals).
+files:
+  - 'src/**'
+rule:
+  pattern: 'userData={{ cullId: $ID }}'
+constraints:
+  ID:
+    kind: identifier

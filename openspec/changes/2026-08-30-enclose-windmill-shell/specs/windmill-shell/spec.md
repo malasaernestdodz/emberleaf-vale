@@ -45,3 +45,41 @@ existing full-height tops.
   onto the deck
 - **THEN** no wall collider stops them (the existing climb-to-vista path
   stays green)
+
+### Requirement: The spiral climb presents a continuous surface with no see-through faces
+
+The spiral climb SHALL present a continuous visual surface under every
+walkable ramp position (an under-surface or skirt beneath the step boxes), and
+no face of the tower interior SHALL be visible as sky from the opposite side:
+the roof SHALL be visible from inside the tower and the ground floor SHALL be
+visible from underneath.
+
+#### Scenario: No sky through the spiral
+
+- **WHEN** an observer at porch level looks up along the spiral climb
+- **THEN** the treads present a continuous surface — no view passes between
+  or beneath the step boxes to the ground floor or outside
+
+#### Scenario: Interior roof is visible
+
+- **WHEN** an observer on the top landing looks up inside the tower
+- **THEN** the roof surface is visible, not sky
+
+#### Scenario: Ground floor visible from below
+
+- **WHEN** an observer under the porch overhang looks up at the ground-floor
+  disc
+- **THEN** the floor surface is visible, not see-through
+
+### Requirement: The ground doorway is framed to its walkable width
+
+The ground doorway frame (posts, jambs, leaf) SHALL span the wall slit width
+(`2 · MILL.doorHalf · MILL.rWall`) exactly, and the leaf SHALL hinge at one
+post so the opening reads as a proper door. Frame widths SHALL derive from
+`MILL` constants (`doorStepW`, `doorHalf`), never hard-coded scene numbers.
+
+#### Scenario: Frame fills the slit
+
+- **WHEN** an observer at the porch looks at the doorway from the front
+- **THEN** the frame edges meet the wall slit edges with no visible gap and
+  the leaf covers the closed portion of the opening

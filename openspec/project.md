@@ -52,6 +52,33 @@ GPU-instanced grass, and a house with a walkable interior.
 | `npm run preview`  | Serve dist on port 4173          |
 | `npm run test:e2e` | Playwright suite (manages server)|
 
+## Grilling (mandatory spec interrogation)
+
+Every change dated 2026-08-31 or later carries `grilling.md`: questions the
+agent asks and answers at the start of the change (adapted from
+mattpocock/skills "grilling"), grounded in this file, `AGENTS.md`, and the
+archived specs. Minimum 8 answered questions — keep going until the design
+tree's frontier is empty. Coverage must sweep every touched dimension: scope
+fidelity, model/geometry (`world.ts`), animation/state machines, collision
+(feet-Y, collider tops), HUD/menus, procedural audio, interactions/quests,
+health/combat, persistence, perf/culling, determinism (seeded rng), and the
+e2e contract (`window.__Ghibli`, state-based polling).
+
+- Format: `### Q1: <question>` blocks, each answered with `**A:** <answer
+  citing files>`; genuine user decisions wait for the user and record their
+  reply; unanswerable ones become `**A:** ASK-USER: <question>`.
+- Scope rule: grill toward MORE fidelity to the user's request. A question
+  that exposes a gap widens the spec; the agent never silently shrinks or
+  drops requested features (that is what forced repeat openspec changes).
+- Enforcement: `scripts/validate-spec.mjs` (`npm run spec:validate`) fails
+  changes without a compliant `grilling.md`. Run `/grill-me <change-dir>` to
+  generate or refresh it whenever scope changes.
+- Defect sweep: user-reported defects land in `openspec/defects.md` first;
+  every open row touching the change's scope becomes a grilled question and a
+  spec requirement, and a gallery screenshot sweep (see-through faces, missing
+  surfaces under walkable positions, frames narrower than their colliders)
+  runs before the specs are final. Rows close only when e2e proves the fix.
+
 ## Non-goals
 
 - No physics engine (Rapier/cannon) — kinematic controller is lighter and deterministic.

@@ -202,6 +202,16 @@ export const MANSION_STAIR = { lx0: -5.2, lx1: 1.8, lz0: -6, lz1: -4.1, stepRise
 export const MANSION_SLAB_LZ = -1.9
 export const MANSION_STAIRWELL = { lx0: -2.2, lx1: 2.1, lz0: -6, lz1: -4.0 }
 export const MANSION_BALCONY = { lx0: 2.8, lx1: 6.4, lz0: -7.5, lz1: -6.0, doorLX: 4.6, doorHalfW: 0.75, doorH: 2.4 }
+export const MANSION_PORTICO = {
+  cx: MANSION_DOOR.hingeLX + MANSION_DOOR.openW / 2,
+  halfW: 1.7,
+  d0: MANSION.d / 2 + 0.05,
+  d1: MANSION.d / 2 + 2.05,
+  roofY: 3.42,
+  colR: 0.15,
+  colH: 3.1,
+  stepSpan: MANSION_DOOR.openW + 0.9,
+}
 const wc = Math.cos(MANSION.yaw)
 const ws = Math.sin(MANSION.yaw)
 
@@ -365,7 +375,7 @@ function addBox(lx: number, lz: number, hw: number, hd: number, top?: number) {
   COLLIDERS.push({ t: 'c', x: WELL.x - 0.75, z: WELL.z, r: 0.18, y0: 0.4, top: 2 })
   COLLIDERS.push({ t: 'c', x: WELL.x + 0.75, z: WELL.z, r: 0.18, y0: 0.4, top: 2 })
   for (const t of TREES) {
-    const c: Collider = { t: 'c', x: t.x, z: t.z, r: 0.45 * t.s, top: 3.4 * t.s }
+    const c: Collider = { t: 'c', x: t.x, z: t.z, r: 0.45 * t.s, top: Math.max(3.4 * t.s, t.y + 3.4 * t.s) }
     TREE_COLLIDERS.push(c)
     COLLIDERS.push(c)
   }
@@ -615,12 +625,11 @@ export const SEATS = [
   const halfA = Math.atan2(hw, MILL.rWall)
   const first = MILL_DOOR_CLEAR + halfA
   const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
-  const balcSkip = Math.PI * 2 - MILL_BALCONY.phi0 + halfA
+  const balcArcEnd = Math.PI * 2 - MILL_BALCONY.phi0 + halfA
   const count = Math.max(2, Math.ceil((last - first) / (2 * halfA)) + 1)
   const step = (last - first) / (count - 1)
   for (let i = 0; i < count; i++) {
     const a = first + i * step
-    if (a < balcSkip) continue
     const p = millWorld(Math.sin(a) * MILL.rWall, Math.cos(a) * MILL.rWall)
     COLLIDERS.push({
       t: 'b',
@@ -630,7 +639,7 @@ export const SEATS = [
       hd: 0.18,
       yaw: a,
       y0: MILL.base + MILL.floorH,
-      top: MILL.base + 0.6 + MILL_TOWER.h,
+      top: a < balcArcEnd ? MILL.base + MILL.top : MILL.base + 0.6 + MILL_TOWER.h,
     })
   }
   const pole = millWorld(0, 0)

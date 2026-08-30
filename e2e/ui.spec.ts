@@ -158,9 +158,16 @@ test('quest HUD shows the log and advances after a real flower pickup', async ({
 test('hotbar renders six SVG item icons and selection pops', async ({ page }) => {
   const icons = page.locator('.hotbar .slot .slot-icon svg')
   await expect(icons).toHaveCount(6)
-  await page.keyboard.press('Digit6')
-  await page.waitForTimeout(300)
-  const activeName = await page.locator('.hotbar .slot.active .slot-name').innerText()
+  let activeName = ''
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press('Digit6')
+    for (let j = 0; j < 8; j++) {
+      activeName = await page.locator('.hotbar .slot.active .slot-name').innerText()
+      if (activeName.toLowerCase() === 'gel') break
+      await page.waitForTimeout(250)
+    }
+    if (activeName.toLowerCase() === 'gel') break
+  }
   expect(activeName.toLowerCase()).toBe('gel')
 })
 

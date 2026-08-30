@@ -2,8 +2,11 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = 'openspec'
+const GRILL_CUTOFF = '2026-08-31'
+const GRILL_MIN = 8
 let specs = 0
 let requirements = 0
+let grilled = 0
 let failures = []
 
 function walkSpecs(dir, out = []) {
@@ -45,7 +48,35 @@ for (const dir of [join(ROOT, 'specs'), join(ROOT, 'changes')]) {
   }
 }
 
+function checkGrilling(dir) {
+  const file = join(dir, 'grilling.md')
+  if (!existsSync(file)) {
+    failures.push(`${file}: missing — run /grill-me (>= ${GRILL_MIN} answered questions, see openspec/project.md "Grilling")`)
+    return
+  }
+  const qs = readFileSync(file, 'utf8').split(/^### Q\d+:/m).slice(1)
+  if (qs.length < GRILL_MIN) {
+    failures.push(`${file}: needs >= ${GRILL_MIN} "### Q<n>:" questions (found ${qs.length}) — the frontier is not empty yet`)
+    return
+  }
+  grilled++
+  for (const q of qs) {
+    if (!/\*\*A:\*\*\s*\S/.test(q)) {
+      failures.push(`${file}: question "${q.split('\n')[0].trim().slice(0, 60)}" has no "**A:** <answer>" line`)
+    }
+  }
+}
+
 if (specs === 0) failures.push(`${ROOT}: no spec.md files found`)
+
+const changesDir = join(ROOT, 'changes')
+if (existsSync(changesDir)) {
+  for (const e of readdirSync(changesDir, { withFileTypes: true })) {
+    if (e.isDirectory() && /^\d{4}-\d{2}-\d{2}-/.test(e.name) && e.name.slice(0, 10) >= GRILL_CUTOFF) {
+      checkGrilling(join(changesDir, e.name))
+    }
+  }
+}
 
 if (failures.length > 0) {
   console.error(`openspec validation FAILED (${failures.length} problem(s)):`)
@@ -53,4 +84,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log(`openspec validation OK: ${specs} spec file(s), ${requirements} requirement(s)`)
+console.log(`openspec validation OK: ${specs} spec file(s), ${requirements} requirement(s), ${grilled} grilled change(s) (cutoff ${GRILL_CUTOFF}, min ${GRILL_MIN} questions)`)

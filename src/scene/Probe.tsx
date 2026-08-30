@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { aliveCount, inv, selected } from '../lib/items'
 import { audioSnapshot } from '../lib/audio'
 import { cullEntries, cullVisible } from '../lib/cull'
+import { ENTITIES } from '../lib/entities'
 import { health } from '../lib/health'
 import { perfStore } from '../lib/perf'
 import { settings } from '../lib/settings'
@@ -155,6 +156,27 @@ export function Probe() {
           r: e.r,
           dist: round(Math.hypot(e.x - game.camX, e.y - game.camY, e.z - game.camZ)),
         })),
+      entityAudit: () => {
+        const inScene = new Set<string>()
+        scene.traverse((o) => {
+          const id = o.userData?.cullId
+          if (typeof id === 'string') inScene.add(id)
+        })
+        const registered = new Set(cullEntries().map((e) => e.id))
+        return {
+          entities: ENTITIES.map((def) => ({
+            id: def.id,
+            name: def.name,
+            kind: def.kind,
+            description: def.description,
+            features: [...def.features],
+            meshPresent: inScene.has(def.id),
+            cullRegistered: registered.has(def.id),
+            cullVisible: cullVisible(def.id),
+          })),
+          sceneOnlyIds: [...inScene].filter((id) => !ENTITIES.some((def) => def.id === id)),
+        }
+      },
       cullVisible: (id: string) => cullVisible(id),
       setRenderDistance: (v: number) => settings.set({ renderDistance: v }),
       objectVisible: (name: string, child = -1) => {

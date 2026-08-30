@@ -1,0 +1,12 @@
+id: no-hardcoded-portico-offset
+language: TypeScript
+severity: error
+message: Portico layout must come from MANSION_PORTICO in lib/world.ts; the old px0 = -1.8 origin made the portico off-center from the doorway.
+note: See openspec entity-audit / mansion-detail specs (portico centered on MANSION_DOOR).
+files:
+  - 'src/scene/Mansion.tsx'
+rule:
+  pattern: const px0 = $VAL
+constraints:
+  VAL:
+    regex: '^-\d+(\.\d+)?$'
