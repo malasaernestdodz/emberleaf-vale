@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { LITE } from './flags'
 
 export type Quality = 'low' | 'medium' | 'high'
@@ -76,6 +77,10 @@ export const settings = {
       listeners.delete(fn)
     }
   },
+}
+
+export function useSettings(): Settings {
+  return useSyncExternalStore(settings.subscribe, settings.get)
 }
 
 export const QUALITY_MAP: Record<Quality, { dpr: number; shadows: boolean; shadowSize: number; bloom: boolean; msaa: number }> = {

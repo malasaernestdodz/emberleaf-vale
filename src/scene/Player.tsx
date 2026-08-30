@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { resolveCollisions } from '../lib/collide'
 import { playSfx } from '../lib/audio'
+import { CHOPS_TO_FALL, hitTree, treeLife } from '../lib/trees'
 import { consumeClickEdge, consumeEdge, isDown } from '../lib/input'
 import { clamp, damp, dampAngle } from '../lib/math'
 import {
@@ -22,6 +23,7 @@ import {
 import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } from '../lib/items'
 import { questEvent } from '../lib/quests'
 import { applySlimeHit } from '../lib/slime'
+import { endSys } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
 
 export function Player() {
@@ -47,9 +49,12 @@ export function Player() {
   const sitReturn = useRef({ x: 0, z: 0, heading: 0 })
   const chopUntil = useRef(0)
   const woodGiven = useRef(false)
+  const chopTarget = useRef(-1)
+  const stepAcc = useRef(0)
   const attackUntil = useRef(0)
 
   useFrame((_, delta) => {
+    const tFrame = performance.now()
     if (game.paused) return
     const raw = Math.min(delta, 0.5)
     game.time += raw
@@ -117,6 +122,7 @@ export function Player() {
       game.attack = 0
       if (axe.current) axe.current.visible = false
       if (sword.current) sword.current.visible = false
+      endSys('player', tFrame)
       return
     }
 
@@ -165,10 +171,10 @@ export function Player() {
         if (p.type === 'flower') questEvent('flowers')
         game.toast = `+1 ${SLOT_LABELS[p.type]}`
         game.toastT = 2
-      } else if (game.near === 'chop' && chopUntil.current <= game.time) {
+      } else if (game.near === 'chop' && chopTarget.current >= 0 && chopUntil.current <= game.time) {
         chopUntil.current = game.time + 1.5
         woodGiven.current = false
-        playSfx('chop')
+        playSfx('swing')
       } else if (game.near === 'fish') {
         game.fishing = true
         game.bite = false
@@ -204,6 +210,11 @@ export function Player() {
         questEvent('chop')
         game.toast = '+1 Wood'
         game.toastT = 2
+        playSfx('chop')
+        if (chopTarget.current >= 0 && hitTree(chopTarget.current, game.x, game.z)) {
+          game.toast = 'Timber!'
+          game.toastT = 2.5
+        }
       }
     } else {
       game.chop = 0
@@ -322,7 +333,10 @@ export function Player() {
         game.vy -= 16 * vdt
         game.y += game.vy * vdt
         if (game.y <= gh) {
-          if (game.vy < -7) squash.current = 1
+          if (game.vy < -7) {
+            squash.current = 1
+            playSfx('thud')
+          }
           game.y = gh
           game.vy = 0
           game.grounded = true
@@ -346,6 +360,15 @@ export function Player() {
     if (Math.hypot(game.x - PLAZA.x, game.z - PLAZA.z) < 5) questEvent('plaza')
 
     const sp = Math.hypot(game.vx, game.vz)
+    if (game.grounded && game.mode === 'walk' && sp > 0.6) {
+      stepAcc.current += sp * raw
+      if (stepAcc.current > 2.1 + game.sprint * 0.5) {
+        stepAcc.current = 0
+        playSfx('step')
+      }
+    } else {
+      stepAcc.current = 1.6
+    }
     if (game.mode === 'walk' && sp > 0.3) {
       game.heading = dampAngle(game.heading, Math.atan2(game.vx, game.vz), 12, raw)
     }
@@ -414,13 +437,19 @@ export function Player() {
         }
       }
       let treeD = Infinity
-      for (const t of TREES) {
+      chopTarget.current = -1
+      for (let i = 0; i < TREES.length; i++) {
+        const t = TREES[i]
+        if (treeLife[i].phase !== 'up') continue
         const d = Math.hypot(game.x - t.x, game.z - t.z) - 0.5 * t.s
-        if (d < 0.85 && d < treeD) treeD = d
+        if (d < 0.85 && d < treeD) {
+          treeD = d
+          chopTarget.current = i
+        }
       }
-      if (treeD < best) {
+      if (chopTarget.current >= 0 && treeD < best) {
         near = 'chop'
-        nearLabel = 'Chop the tree'
+        nearLabel = `Chop the tree (${treeLife[chopTarget.current].hits}/${CHOPS_TO_FALL})`
       }
       const pd = Math.hypot(game.x - POND.x, game.z - POND.z)
       if (pd > 4.5 && pd < 8.5) {

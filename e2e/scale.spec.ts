@@ -34,9 +34,9 @@ test('windmill wall tiling is sealed around the door', () => {
   expect(2 * hw).toBeGreaterThanOrEqual(2 * halfA * MILL.rWall)
   const first = MILL_DOOR_CLEAR + halfA
   const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
-  const count = Math.max(1, Math.ceil((last - first) / (2 * halfA)))
+  const count = Math.max(2, Math.ceil((last - first) / (2 * halfA)) + 1)
   expect(count).toBeGreaterThanOrEqual(20)
-  const step = count > 1 ? (last - first) / (count - 1) : 0
+  const step = (last - first) / (count - 1)
   expect(step).toBeLessThanOrEqual(2 * halfA + 1e-9)
   const farEdge = first + (count - 1) * step + halfA
   expect(farEdge).toBeGreaterThanOrEqual(Math.PI * 2 - MILL_DOOR_CLEAR - 1e-9)

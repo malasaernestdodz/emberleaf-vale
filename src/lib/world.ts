@@ -444,8 +444,8 @@ export const SEATS = [
   const halfA = Math.atan2(hw, MILL.rWall)
   const first = MILL_DOOR_CLEAR + halfA
   const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
-  const count = Math.max(1, Math.ceil((last - first) / (2 * halfA)))
-  const step = count > 1 ? (last - first) / (count - 1) : 0
+  const count = Math.max(2, Math.ceil((last - first) / (2 * halfA)) + 1)
+  const step = (last - first) / (count - 1)
   for (let i = 0; i < count; i++) {
     const a = first + i * step
     const p = millWorld(Math.sin(a) * MILL.rWall, Math.cos(a) * MILL.rWall)
@@ -497,6 +497,7 @@ export const game = {
   windmill: 0,
   attack: 0,
   showColliders: false,
+  showPerf: false,
   menu: false,
   questVer: 0,
   fps: 60,

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { smoothstep } from '../lib/math'
 import { MANSION, MANSION_SLAB_LZ, MANSION_STAIR } from '../lib/world'
+import { getGlassMaterial, getNoiseNormalMap } from './textures'
 import { getToonRamp } from './toonRamp'
 
 const COLORS: Record<string, string> = {
@@ -16,6 +17,7 @@ const COLORS: Record<string, string> = {
   blue: '#4a7a9e',
   green: '#5d8f3a',
   steel: '#cfd6dd',
+  stone: '#8d8578',
 }
 
 function tr(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) {
@@ -82,8 +84,26 @@ export function Mansion() {
       put('timber', f)
       const g = new THREE.PlaneGeometry(w - 0.22, h - 0.22)
       g.rotateY(ry)
-      g.translate(x + Math.sin(ry) * 0.06, y, z + Math.cos(ry) * 0.06)
+      const gx = x + Math.sin(ry) * 0.06
+      const gz = z + Math.cos(ry) * 0.06
+      g.translate(gx, y, gz)
       ;(buckets.glass ??= []).push(g)
+      const ped = new THREE.BoxGeometry(w + 0.24, 0.13, 0.16)
+      ped.rotateY(ry)
+      ped.translate(x, y + h / 2 + 0.11, z)
+      put('cream', ped)
+      const sill = new THREE.BoxGeometry(w + 0.28, 0.11, 0.18)
+      sill.rotateY(ry)
+      sill.translate(x, y - h / 2 - 0.1, z)
+      put('cream', sill)
+      const mv = new THREE.BoxGeometry(0.05, h - 0.24, 0.05)
+      mv.rotateY(ry)
+      mv.translate(gx, y, gz)
+      put('timber', mv)
+      const mh = new THREE.BoxGeometry(w - 0.24, 0.05, 0.05)
+      mh.rotateY(ry)
+      mh.translate(gx, y, gz)
+      put('timber', mh)
     }
     addWin(-3.6, 2.0, hd + 0.1, 0, 1.1, 1.7)
     addWin(3.6, 2.0, hd + 0.1, 0, 1.1, 1.7)
@@ -180,6 +200,9 @@ export function Mansion() {
       const g = new THREE.PlaneGeometry(0.85, 2.1)
       g.translate(px, F2 + 1.15, -hd + 0.07)
       ;(buckets.glass ??= []).push(g)
+      const mv = new THREE.BoxGeometry(0.05, 1.9, 0.05)
+      mv.translate(px, F2 + 1.15, -hd + 0.07)
+      put('timber', mv)
     }
 
     put('cream', tr(new THREE.CircleGeometry(1.0, 22).rotateX(-Math.PI / 2), -1, F2 + 0.015, -3))
@@ -217,6 +240,59 @@ export function Mansion() {
       put('gold', new THREE.SphereGeometry(0.07, 8, 6).translate(cx, 5.52, cz))
     }
 
+    const px0 = -1.8
+    put('wood', tr(new THREE.BoxGeometry(4.2, 0.12, 2.3), px0, 0.06, hd + 1.05))
+    put('stone', tr(new THREE.BoxGeometry(2.7, 0.1, 0.55), px0, 0.05, hd + 2.4))
+    put('stone', tr(new THREE.BoxGeometry(2.3, 0.1, 0.5), px0, 0.15, hd + 2.28))
+    for (const [cx, cz] of [
+      [px0 - 1.7, hd + 0.35],
+      [px0 + 1.7, hd + 0.35],
+      [px0 - 1.7, hd + 1.75],
+      [px0 + 1.7, hd + 1.75],
+    ]) {
+      put('cream', tr(new THREE.CylinderGeometry(0.13, 0.16, 3.1, 10), cx, 1.66, cz))
+      put('gold', tr(new THREE.BoxGeometry(0.36, 0.1, 0.36), cx, 3.28, cz))
+    }
+    put('wood', tr(new THREE.BoxGeometry(4.1, 0.26, 2.25), px0, 3.42, hd + 1.05))
+    put('timber', tr(new THREE.BoxGeometry(0.16, 2.7, 0.16), px0 - 0.98, 1.35, hd + 0.1))
+    put('timber', tr(new THREE.BoxGeometry(0.16, 2.7, 0.16), px0 + 0.98, 1.35, hd + 0.1))
+    put('timber', tr(new THREE.BoxGeometry(2.3, 0.18, 0.16), px0, 2.8, hd + 0.1))
+    put('wood', tr(new THREE.BoxGeometry(4.3, 0.14, 2.4), px0, F2 + 0.07, hd + 1.0))
+    put('wood', tr(new THREE.BoxGeometry(4.3, 0.1, 0.14), px0, F2 + 0.98, hd + 2.1))
+    put('wood', tr(new THREE.BoxGeometry(4.3, 0.09, 0.12), px0, F2 + 0.34, hd + 2.12))
+    for (let i = 0; i < 9; i++) {
+      put('cream', tr(new THREE.BoxGeometry(0.09, 0.52, 0.09), px0 - 1.95 + i * 0.49, F2 + 0.66, hd + 2.08))
+    }
+
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 8; i++) {
+        const y = 0.35 + i * 1.05
+        const w = i % 2 === 0 ? 0.42 : 0.3
+        put('cream', tr(new THREE.BoxGeometry(w, 0.62, 0.12), sx * (hw - 0.75), y, hd + 0.1))
+      }
+    }
+
+    put('cream', tr(new THREE.BoxGeometry(MANSION.w + 0.16, 0.16, 0.1), 0, F2 - 0.18, hd + 0.07))
+    put('cream', tr(new THREE.BoxGeometry(MANSION.w + 0.16, 0.16, 0.1), 0, F2 - 0.18, -hd - 0.07))
+    put('cream', tr(new THREE.BoxGeometry(0.1, 0.16, MANSION.d + 0.16), -hw - 0.07, F2 - 0.18, 0))
+    put('cream', tr(new THREE.BoxGeometry(0.1, 0.16, MANSION.d + 0.16), hw + 0.07, F2 - 0.18, 0))
+    put('cream', tr(new THREE.BoxGeometry(MANSION.w + 0.5, 0.22, 0.16), 0, H - 0.14, hd + 0.1))
+    put('cream', tr(new THREE.BoxGeometry(MANSION.w + 0.5, 0.22, 0.16), 0, H - 0.14, -hd - 0.1))
+    put('cream', tr(new THREE.BoxGeometry(0.16, 0.22, MANSION.d + 0.5), -hw - 0.1, H - 0.14, 0))
+    put('cream', tr(new THREE.BoxGeometry(0.16, 0.22, MANSION.d + 0.5), hw + 0.1, H - 0.14, 0))
+
+    put('stone', tr(new THREE.BoxGeometry(0.72, 2.8, 0.72), -4.6, H + 1.15, -2.2))
+    put('stone', tr(new THREE.BoxGeometry(0.95, 0.16, 0.95), -4.6, H + 2.6, -2.2))
+    put('timber', tr(new THREE.BoxGeometry(0.5, 0.16, 0.5), -4.6, H + 2.72, -2.2))
+    put('stone', tr(new THREE.BoxGeometry(0.72, 3.0, 0.72), 4.3, H + 1.3, -3.6))
+    put('stone', tr(new THREE.BoxGeometry(0.95, 0.16, 0.95), 4.3, H + 2.85, -3.6))
+    put('timber', tr(new THREE.BoxGeometry(0.5, 0.16, 0.5), 4.3, H + 2.97, -3.6))
+
+    for (const sx of [-1, 1]) {
+      put('plaster', tr(new THREE.BoxGeometry(0.95, 0.95, 1.2), sx * 2.9, H + 1.42, 2.4))
+      put('roof', tr(new THREE.ConeGeometry(0.82, 0.55, 4).rotateY(Math.PI / 4), sx * 2.9, H + 2.16, 2.4))
+    }
+
     const merged: { key: string; geo: THREE.BufferGeometry }[] = []
     for (const [k, geos] of Object.entries(buckets)) {
       merged.push({ key: k, geo: mergeGeometries(geos, false)! })
@@ -224,26 +300,38 @@ export function Mansion() {
     return merged
   }, [])
 
-  const ramp = getToonRamp()
+  const mats = useMemo(() => {
+    const ramp = getToonRamp()
+    const out: Record<string, THREE.MeshToonMaterial> = {}
+    for (const k of Object.keys(COLORS)) {
+      const m = new THREE.MeshToonMaterial({ color: COLORS[k], gradientMap: ramp })
+      if (k === 'plaster') {
+        m.normalMap = getNoiseNormalMap(3, 2.2)
+        m.normalScale = new THREE.Vector2(0.45, 0.45)
+      } else if (k === 'roof') {
+        m.normalMap = getNoiseNormalMap(11, 11)
+        m.normalScale = new THREE.Vector2(0.3, 0.3)
+        m.side = THREE.DoubleSide
+      }
+      out[k] = m
+    }
+    return out
+  }, [])
+  const glass = useMemo(() => getGlassMaterial(), [])
+
   return (
     <group position={[MANSION.x, 0, MANSION.z]} rotation={[0, MANSION.yaw, 0]}>
-      {built.map(({ key, geo }) =>
-        key === 'glass' ? (
-          <mesh key={key} geometry={geo}>
-            <meshBasicMaterial color="#ffd27a" side={THREE.DoubleSide} toneMapped={false} />
-          </mesh>
-        ) : (
-          <mesh key={key} geometry={geo} castShadow receiveShadow>
-            <meshToonMaterial
-              color={COLORS[key]}
-              gradientMap={ramp}
-              side={key === 'roof' ? THREE.DoubleSide : THREE.FrontSide}
-            />
-          </mesh>
-        )
-      )}
+      {built.map(({ key, geo }) => (
+        <mesh
+          key={key}
+          geometry={geo}
+          material={key === 'glass' ? glass : mats[key]}
+          castShadow={key !== 'glass'}
+          receiveShadow={key !== 'glass'}
+        />
+      ))}
       <mesh geometry={doorGeo} position={[-1.8, 1.3, MANSION.d / 2 + 0.12]} rotation-y={1.5} castShadow>
-        <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
+        <meshToonMaterial color="#6b4a2f" gradientMap={getToonRamp()} />
       </mesh>
       <pointLight position={[0, 4.8, 1.5]} intensity={16} distance={12} decay={2} color="#ffd9a0" />
       <pointLight position={[0, F2 + 2.4, -3.9]} intensity={12} distance={9} decay={2} color="#ffe6c0" />

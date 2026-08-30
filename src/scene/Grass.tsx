@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mulberry32 } from '../lib/math'
 import { LITE } from '../lib/flags'
+import { perfStore } from '../lib/perf'
+import { endSys } from '../lib/trace'
 import {
   FOUNTAIN,
   PLAZA,
@@ -32,6 +34,15 @@ varying float vY;
 varying float vMix;
 varying float vDist;
 void main() {
+  vec3 world0 = position + aOffset;
+  float d0 = distance(world0, cameraPosition);
+  if (d0 > 74.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    vDist = d0;
+    vY = uv.y;
+    vMix = aMix;
+    return;
+  }
   vY = uv.y;
   vMix = aMix;
   vec3 p = position;
@@ -79,6 +90,14 @@ uniform float uTime;
 varying vec3 vCol;
 varying float vDist;
 void main() {
+  vec3 world0 = position + aOffset;
+  float d0 = distance(world0, cameraPosition);
+  if (d0 > 74.0) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    vDist = d0;
+    vCol = aCol;
+    return;
+  }
   vCol = aCol;
   vec3 p = position;
   p.x += sin(uTime * 1.3 + aPhase) * 0.012;
@@ -123,7 +142,7 @@ export function Grass() {
       const r = Math.sqrt(rng()) * 78
       const x = Math.cos(a) * r
       const z = Math.sin(a) * r
-      if (pathDistance(x, z) < 1.9) continue
+      // cheap rejects first, expensive pathDistance last
       if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < 6.4) continue
       if (Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < 2.4) continue
       const hl = houseLocal(x, z)
@@ -133,6 +152,7 @@ export function Grass() {
       const mnl = mansionLocal(x, z)
       if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 8.0) continue
       if (Math.hypot(x - WELL.x, z - WELL.z) < 1.6) continue
+      if (pathDistance(x, z) < 1.9) continue
       let near = false
       for (const t of TREES) {
         if (Math.hypot(t.x - x, t.z - z) < 1.1) {
@@ -231,7 +251,7 @@ export function Grass() {
       vertexShader: flowerVert,
       fragmentShader: flowerFrag,
     })
-    return { geo, mat }
+    return { geo, mat, count: n }
   }, [grass])
 
   useEffect(() => {
@@ -244,10 +264,17 @@ export function Grass() {
   }, [grass, flowers])
 
   useFrame((_, delta) => {
+    const t0 = performance.now()
     const dt = Math.min(delta, 0.05)
     grass.mat.uniforms.uTime.value += dt
     grass.mat.uniforms.uPlayer.value.set(game.x, game.y, game.z)
     flowers.mat.uniforms.uTime.value += dt
+    const gs = perfStore.get().grassScale
+    const wantGrass = Math.floor(grass.count * gs)
+    if (grass.geo.instanceCount !== wantGrass) grass.geo.instanceCount = wantGrass
+    const wantFlowers = Math.floor(flowers.count * gs)
+    if (flowers.geo.instanceCount !== wantFlowers) flowers.geo.instanceCount = wantFlowers
+    endSys('grass', t0)
   })
 
   return (

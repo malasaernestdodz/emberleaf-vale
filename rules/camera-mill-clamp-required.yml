@@ -1,0 +1,13 @@
+id: camera-mill-clamp-required
+language: TypeScript
+severity: error
+message: CameraRig useFrame lost the windmill ray clamp (circleWall) — the circular tower interior needs ray-vs-circle clamping like the OBB buildings.
+note: See openspec specs camera-system (occlusion-clamped indoor camera).
+files:
+  - 'src/scene/CameraRig.tsx'
+rule:
+  pattern: useFrame(($$$ARGS) => { $$$BODY })
+  not:
+    has:
+      stopBy: end
+      pattern: circleWall($$$)

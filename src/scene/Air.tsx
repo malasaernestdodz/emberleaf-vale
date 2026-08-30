@@ -2,24 +2,43 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mulberry32 } from '../lib/math'
+import { endSys } from '../lib/trace'
 import { terrainHeight } from '../lib/world'
 
 const LEAF_N = 150
+const RESAMPLE_DIST_SQ = 1.44 // re-evaluate cached ground height after moving ~1.2 m
+
+type Leaf = {
+  x: number
+  z: number
+  y: number
+  sp: number
+  ph: number
+  rs: number
+  gh: number
+  gx: number
+  gz: number
+}
 
 export function Air() {
   const leaves = useRef<THREE.InstancedMesh>(null!)
   const rngRespawn = useRef(mulberry32(12345))
   const data = useMemo(() => {
     const rng = mulberry32(99)
-    const arr: { x: number; z: number; y: number; sp: number; ph: number; rs: number }[] = []
+    const arr: Leaf[] = []
     for (let i = 0; i < LEAF_N; i++) {
+      const x = (rng() - 0.5) * 100
+      const z = (rng() - 0.5) * 100
       arr.push({
-        x: (rng() - 0.5) * 100,
-        z: (rng() - 0.5) * 100,
+        x,
+        z,
         y: 2 + rng() * 6,
         sp: 0.35 + rng() * 0.4,
         ph: rng() * Math.PI * 2,
         rs: 0.5 + rng() * 1.5,
+        gh: terrainHeight(x, z),
+        gx: x,
+        gz: z,
       })
     }
     return arr
@@ -37,6 +56,7 @@ export function Air() {
   }, [])
 
   useFrame(({ clock }, delta) => {
+    const t0 = performance.now()
     const dt = Math.min(delta, 0.05)
     const t = clock.elapsedTime
     for (let i = 0; i < LEAF_N; i++) {
@@ -44,11 +64,21 @@ export function Air() {
       L.y -= L.sp * dt
       L.x += Math.sin(t * 1.2 + L.ph) * 0.6 * dt
       L.z += Math.cos(t * 0.9 + L.ph) * 0.45 * dt
-      if (L.y < terrainHeight(L.x, L.z) + 0.05) {
+      const dxs = L.x - L.gx
+      const dzs = L.z - L.gz
+      if (dxs * dxs + dzs * dzs > RESAMPLE_DIST_SQ) {
+        L.gh = terrainHeight(L.x, L.z)
+        L.gx = L.x
+        L.gz = L.z
+      }
+      if (L.y < L.gh + 0.05) {
         const r = rngRespawn.current
-        L.y = 5 + r() * 3
         L.x = (r() - 0.5) * 100
         L.z = (r() - 0.5) * 100
+        L.y = 5 + r() * 3
+        L.gh = terrainHeight(L.x, L.z)
+        L.gx = L.x
+        L.gz = L.z
       }
       dummy.position.set(L.x, L.y, L.z)
       dummy.rotation.set(t * L.rs + L.ph, t * L.rs * 0.7, L.ph)
@@ -56,6 +86,7 @@ export function Air() {
       leaves.current.setMatrixAt(i, dummy.matrix)
     }
     leaves.current.instanceMatrix.needsUpdate = true
+    endSys('leaves', t0)
   })
 
   return (
@@ -73,24 +104,47 @@ wingR.translate(-0.08, 0, 0)
 
 const B_N = 6
 
+type Fly = {
+  cx: number
+  cz: number
+  rx: number
+  rz: number
+  fx: number
+  fz: number
+  ph: number
+  h: number
+  col: string
+  gh: number
+  gx: number
+  gz: number
+}
+
 export function Butterflies() {
   const groups = useRef<(THREE.Group | null)[]>([])
   const data = useMemo(() => {
     const rng = mulberry32(555)
-    return Array.from({ length: B_N }, (_, i) => ({
-      cx: (rng() - 0.5) * 60,
-      cz: (rng() - 0.5) * 60,
-      rx: 3 + rng() * 5,
-      rz: 2 + rng() * 4,
-      fx: 0.15 + rng() * 0.25,
-      fz: 0.13 + rng() * 0.22,
-      ph: rng() * Math.PI * 2,
-      h: 1.3 + rng() * 1.0,
-      col: ['#fff6d8', '#ffd27a', '#f6b8c8'][i % 3],
-    }))
+    return Array.from({ length: B_N }, (_, i) => {
+      const cx = (rng() - 0.5) * 60
+      const cz = (rng() - 0.5) * 60
+      return {
+        cx,
+        cz,
+        rx: 3 + rng() * 5,
+        rz: 2 + rng() * 4,
+        fx: 0.15 + rng() * 0.25,
+        fz: 0.13 + rng() * 0.22,
+        ph: rng() * Math.PI * 2,
+        h: 1.3 + rng() * 1.0,
+        col: ['#fff6d8', '#ffd27a', '#f6b8c8'][i % 3],
+        gh: terrainHeight(cx, cz),
+        gx: cx,
+        gz: cz,
+      } satisfies Fly
+    })
   }, [])
 
   useFrame(({ clock }) => {
+    const t0 = performance.now()
     const t = clock.elapsedTime
     for (let i = 0; i < B_N; i++) {
       const b = data[i]
@@ -100,7 +154,14 @@ export function Butterflies() {
       const z = b.cz + Math.sin(t * b.fz + b.ph * 2) * b.rz
       const px = g.position.x
       const pz = g.position.z
-      g.position.set(x, terrainHeight(x, z) + b.h + Math.sin(t * 2.1 + b.ph) * 0.25, z)
+      const dxs = x - b.gx
+      const dzs = z - b.gz
+      if (dxs * dxs + dzs * dzs > RESAMPLE_DIST_SQ) {
+        b.gh = terrainHeight(x, z)
+        b.gx = x
+        b.gz = z
+      }
+      g.position.set(x, b.gh + b.h + Math.sin(t * 2.1 + b.ph) * 0.25, z)
       const dx = x - px
       const dz = z - pz
       if (dx * dx + dz * dz > 1e-8) g.rotation.y = Math.atan2(dx, dz)
@@ -110,6 +171,7 @@ export function Butterflies() {
       wl.rotation.y = flap
       wr.rotation.y = -flap
     }
+    endSys('butterflies', t0)
   })
 
   return (

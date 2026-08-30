@@ -88,20 +88,6 @@ export function CameraRig() {
       if (t < Infinity) allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior3))
     }
 
-    const camY = ty + dirY * allowed
-    const wall = Math.min(
-      camY < HOUSE.h + 0.5
-        ? obbWall(tx, tz, dirX, dirZ, HOUSE.x, HOUSE.z, HOUSE.w / 2, HOUSE.d / 2, HOUSE.yaw, 0.3)
-        : Infinity,
-      camY < MANSION.floor2 + 3.3
-        ? obbWall(tx, tz, dirX, dirZ, MANSION.x, MANSION.z, MANSION.w / 2, MANSION.d / 2, MANSION.yaw, 0.3)
-        : Infinity,
-      camY < MILL.base + MILL.top + 0.7
-        ? circleWall(tx, tz, dirX, dirZ, MILL.x, MILL.z, MILL.rWall + 0.7)
-        : Infinity
-    )
-    if (wall < Infinity) allowed = Math.min(allowed, Math.max(wall - 0.5, 0.8))
-
     pos.current.x = damp(pos.current.x, tx + dirX * allowed, 7, dt)
     pos.current.y = damp(pos.current.y, ty + dirY * allowed, 7, dt)
     pos.current.z = damp(pos.current.z, tz + dirZ * allowed, 7, dt)
@@ -110,7 +96,7 @@ export function CameraRig() {
     look.current.z = damp(look.current.z, tz, 12, dt)
 
     pos.current.y = Math.max(pos.current.y, groundHeight(pos.current.x, pos.current.z, pos.current.y) + 0.35, 0.55)
-    if (game.interior > 0.5 && game.inside) {
+    if (game.interior > 0.5) {
       const l = houseLocal(pos.current.x, pos.current.z)
       const clx = clamp(l.lx, -3.15, 3.15)
       const clz = clamp(l.lz, -2.65, 2.65)
@@ -144,6 +130,7 @@ export function CameraRig() {
       pos.current.y = Math.min(pos.current.y, MILL.base + MILL.top + 5.5)
     }
 
+    camera.position.set(0, 0, 0)
     camera.position.copy(pos.current)
     camera.lookAt(look.current)
     const targetFov = 55 + game.sprint * 8
@@ -151,6 +138,7 @@ export function CameraRig() {
       camera.fov = damp(camera.fov, targetFov, 6, dt)
       camera.updateProjectionMatrix()
     }
+    game.camDist = game.camDist * Math.exp(0.001)
     game.camX = pos.current.x
     game.camY = pos.current.y
     game.camZ = pos.current.z

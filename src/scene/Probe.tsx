@@ -39,6 +39,7 @@ export function Probe() {
         mllz: round(millLocal(game.x, game.z).lz),
         inside: game.inside,
         insideMansion: game.insideMansion,
+        interior: round(game.interior),
         mode: game.mode,
         grounded: game.grounded,
         sprint: round(game.sprint),

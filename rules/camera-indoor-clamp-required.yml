@@ -1,0 +1,13 @@
+id: camera-indoor-clamp-required
+language: TypeScript
+severity: error
+message: CameraRig useFrame lost the indoor ray clamp (obbWall) — indoor zoom must stay ray-clamped to the containing volume (house/mansion) or the camera clips through walls.
+note: See openspec specs camera-system (occlusion-clamped indoor camera).
+files:
+  - 'src/scene/CameraRig.tsx'
+rule:
+  pattern: useFrame(($$$ARGS) => { $$$BODY })
+  not:
+    has:
+      stopBy: end
+      pattern: obbWall($$$)

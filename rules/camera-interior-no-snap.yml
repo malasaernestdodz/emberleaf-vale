@@ -1,0 +1,11 @@
+id: camera-interior-no-snap
+language: TypeScript
+severity: error
+message: game.interior must never be snapped to 0/1 — it is eased with damp() so the indoor↔outdoor zoom transition stays smooth.
+note: See openspec specs camera-system (smooth transition).
+files:
+  - 'src/**'
+rule:
+  any:
+    - pattern: game.interior = 0
+    - pattern: game.interior = 1

@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useThree } from '@react-three/fiber'
 import { Lights } from './Lights'
 import { Sky } from './Sky'
 import { Terrain } from './Terrain'
@@ -18,11 +20,21 @@ import { Colliders } from './Colliders'
 import { CameraRig } from './CameraRig'
 import { Probe } from './Probe'
 import { Effects } from './Effects'
+import { buildGlassEnv } from './textures'
+
+function SceneEnv() {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    buildGlassEnv(gl)
+  }, [gl])
+  return null
+}
 
 export function World() {
   return (
     <>
       <fog attach="fog" args={['#bcd9ee', 60, 170]} />
+      <SceneEnv />
       <Lights />
       <Sky />
       <Terrain />

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { smoothstep } from '../lib/math'
 import { HOUSE } from '../lib/world'
+import { getGlassMaterial, getNoiseNormalMap } from './textures'
 import { getToonRamp } from './toonRamp'
 
 const COLORS: Record<string, string> = {
@@ -66,8 +67,22 @@ export function House() {
       put('timber', f)
       const g = new THREE.PlaneGeometry(0.52, 0.52)
       g.rotateY(ry)
-      g.translate(x + Math.sin(ry) * 0.05, y, z + Math.cos(ry) * 0.05)
+      const gx = x + Math.sin(ry) * 0.05
+      const gz = z + Math.cos(ry) * 0.05
+      g.translate(gx, y, gz)
       ;(buckets.glass ??= []).push(g)
+      const sill = new THREE.BoxGeometry(0.92, 0.1, 0.16)
+      sill.rotateY(ry)
+      sill.translate(x, y - 0.47, z)
+      put('cream', sill)
+      const mv = new THREE.BoxGeometry(0.05, 0.52, 0.05)
+      mv.rotateY(ry)
+      mv.translate(gx, y, gz)
+      put('timber', mv)
+      const mh = new THREE.BoxGeometry(0.52, 0.05, 0.05)
+      mh.rotateY(ry)
+      mh.translate(gx, y, gz)
+      put('timber', mh)
     }
     addWin(-1.9, 1.6, hd + 0.09, 0)
     addWin(2.9, 1.6, hd + 0.09, 0)
@@ -88,6 +103,9 @@ export function House() {
     put('timber', tr(new THREE.BoxGeometry(HOUSE.w + 0.24, 0.12, HOUSE.d + 0.24), 0, 2.84, 0))
     const doorGeo = new THREE.BoxGeometry(1.1, 2.0, 0.07)
     doorGeo.translate(0.55, 0, 0)
+    put('timber', tr(new THREE.BoxGeometry(0.14, 2.1, 0.14), lx - 0.62, 1.05, hd + 0.1))
+    put('timber', tr(new THREE.BoxGeometry(0.14, 2.1, 0.14), lx + 0.62, 1.05, hd + 0.1))
+    put('timber', tr(new THREE.BoxGeometry(1.5, 0.16, 0.14), lx, 2.16, hd + 0.1))
 
     put('red', tr(new THREE.CircleGeometry(1.6, 24).rotateX(-Math.PI / 2), 0.3, 0.19, 0.4))
     put('gold', tr(new THREE.CircleGeometry(1.05, 24).rotateX(-Math.PI / 2), 0.3, 0.195, 0.4))
@@ -131,24 +149,36 @@ export function House() {
     return { merged, doorGeo }
   }, [])
 
+  const mats = useMemo(() => {
+    const ramp = getToonRamp()
+    const out: Record<string, THREE.MeshToonMaterial> = {}
+    for (const k of Object.keys(COLORS)) {
+      const m = new THREE.MeshToonMaterial({ color: COLORS[k], gradientMap: ramp })
+      if (k === 'plaster') {
+        m.normalMap = getNoiseNormalMap(2.2, 2.2)
+        m.normalScale = new THREE.Vector2(0.45, 0.45)
+      } else if (k === 'roof') {
+        m.normalMap = getNoiseNormalMap(7, 7)
+        m.normalScale = new THREE.Vector2(0.3, 0.3)
+        m.side = THREE.DoubleSide
+      }
+      out[k] = m
+    }
+    return out
+  }, [])
+  const glass = useMemo(() => getGlassMaterial(), [])
   const ramp = getToonRamp()
   return (
     <group position={[HOUSE.x, 0, HOUSE.z]} rotation={[0, HOUSE.yaw, 0]}>
-      {built.merged.map(({ key, geo }) =>
-        key === 'glass' ? (
-          <mesh key={key} geometry={geo}>
-            <meshBasicMaterial color="#ffd27a" side={THREE.DoubleSide} toneMapped={false} />
-          </mesh>
-        ) : (
-          <mesh key={key} geometry={geo} castShadow receiveShadow>
-            <meshToonMaterial
-              color={COLORS[key]}
-              gradientMap={ramp}
-              side={key === 'roof' ? THREE.DoubleSide : THREE.FrontSide}
-            />
-          </mesh>
-        )
-      )}
+      {built.merged.map(({ key, geo }) => (
+        <mesh
+          key={key}
+          geometry={geo}
+          material={key === 'glass' ? glass : mats[key]}
+          castShadow={key !== 'glass'}
+          receiveShadow={key !== 'glass'}
+        />
+      ))}
       <mesh geometry={built.doorGeo} position={[-0.05, 1.0, HOUSE.d / 2 + 0.12]} rotation-y={-1.9} castShadow>
         <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
       </mesh>

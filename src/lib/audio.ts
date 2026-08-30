@@ -28,28 +28,51 @@ function ensure(): AudioContext | null {
 
 function applyVolumes() {
   if (!ctx || !master || !musicBus || !sfxBus) return
-  const s = settings.get()
   const t = ctx.currentTime
-  const m = s.muted ? 0 : s.master
-  master.gain.setTargetAtTime(m, t, 0.05)
-  musicBus.gain.setTargetAtTime(s.music * 0.85, t, 0.05)
-  sfxBus.gain.setTargetAtTime(s.sfx, t, 0.05)
+  master.gain.setTargetAtTime(audio.master, t, 0.05)
+  sfxBus.gain.setTargetAtTime(audio.sfx ? 1 : 0, t, 0.04)
+  musicBus.gain.setTargetAtTime(audio.ambience ? 0.85 * settings.get().music : 0, t, 0.08)
+}
+
+export const audio = {
+  master: 0.8,
+  sfx: true,
+  ambience: true,
+  prev: 0.8,
+}
+
+export function setMaster(v: number) {
+  audio.master = Math.min(1, Math.max(0, v))
+  if (audio.master > 0) audio.prev = audio.master
+  applyVolumes()
+}
+
+export function setSfx(on: boolean) {
+  audio.sfx = on
+  applyVolumes()
+}
+
+export function setAmbience(on: boolean) {
+  audio.ambience = on
+  applyVolumes()
+  if (on) {
+    startWind()
+    startMusic()
+    scheduleBird(2 + rng() * 4)
+  }
+}
+
+export function audioSnapshot() {
+  return {
+    master: Math.round(audio.master * 100) / 100,
+    sfx: audio.sfx,
+    ambience: audio.ambience,
+    muted: audio.master <= 0,
+    unlocked: ctx !== null && ctx.state === 'running',
+  }
 }
 
 export function unlockAudio() {
-  ensureGraph()
-  applyVolumes()
-}
-
-export const ensureAudio = unlockAudio
-
-export function setMaster(v: number | boolean) {
-  const n = typeof v === 'boolean' ? (v ? 1 : 0) : v
-  settings.set({ master: Math.min(1, Math.max(0, n)), muted: typeof v === 'boolean' ? !v : n <= 0.001 })
-  applyVolumes()
-}
-
-function ensureGraph() {
   if (!ctx) {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AC) return
@@ -68,7 +91,10 @@ function ensureGraph() {
     const len = ctx.sampleRate
     noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate)
     const d = noiseBuf.getChannelData(0)
-    for (let i = 0; i < len; i++) d[i] = Math.sin(i * 12.9898) * 43758.5453 - Math.floor(Math.sin(i * 12.9898) * 43758.5453) - 0.5
+    for (let i = 0; i < len; i++) {
+      const s = Math.sin(i * 12.9898) * 43758.5453
+      d[i] = (s - Math.floor(s)) * 2 - 1
+    }
     applyVolumes()
     settings.subscribe(applyVolumes)
   }
@@ -78,8 +104,8 @@ function ensureGraph() {
   scheduleBird(3 + rng() * 5)
 }
 
-function noiseSrc(ctxA: AudioContext) {
-  const src = ctxA.createBufferSource()
+function noiseSrc(c: AudioContext) {
+  const src = c.createBufferSource()
   if (noiseBuf) src.buffer = noiseBuf
   src.loop = true
   return src
@@ -105,7 +131,7 @@ function tone(
   const t = c.currentTime + when
   const o = c.createOscillator()
   o.type = type
-  o.frequency.setValueAtTime(freq0, t)
+  o.frequency.setValueAtTime(Math.max(freq0, 1), t)
   if (freq1 !== freq0) o.frequency.exponentialRampToValueAtTime(Math.max(freq1, 1), t + dur)
   const g = c.createGain()
   env(g, t, peak, Math.min(0.02, dur * 0.2), dur)
@@ -131,7 +157,7 @@ function noise(
   const flt = c.createBiquadFilter()
   flt.type = filterType
   flt.Q.value = q
-  flt.frequency.setValueAtTime(f0, t)
+  flt.frequency.setValueAtTime(Math.max(f0, 20), t)
   if (f1 !== f0) flt.frequency.exponentialRampToValueAtTime(Math.max(f1, 20), t + dur)
   const g = c.createGain()
   env(g, t, peak, Math.min(0.015, dur * 0.15), dur)
@@ -162,60 +188,24 @@ export type SfxName =
   | 'sit'
   | 'hover'
   | 'click'
-  | 'hit'
-  | 'pop'
-  | 'hop'
   | 'back'
   | 'toast'
   | 'menu'
   | 'test'
   | 'quest'
+  | 'hit'
+  | 'pop'
+  | 'hop'
 
 const vary = (amount: number) => 1 + (rng() - 0.5) * 2 * amount
 
-let lastSfx: SfxName | null = null
-
-export function audioSnapshot() {
-  const s = settings.get()
-  return {
-    master: s.muted ? 0 : s.master,
-    sfx: s.sfx,
-    ambience: s.music,
-    last: lastSfx,
-    started: windStarted || musicStarted,
-  }
-}
-
 export function playSfx(name: SfxName) {
-  lastSfx = name
   switch (name) {
     case 'step':
       noise('lowpass', 900 * vary(0.3), 300, 0.8, 0.09, 0.1)
       break
     case 'swing':
       noise('bandpass', 500, 2200, 1.4, 0.16, 0.22)
-      break
-    case 'hit':
-      tone(260 * vary(0.2), 120, 0.12, 'sine', 0.4)
-      noise('lowpass', 900, 300, 0.5, 0.1, 0.2)
-      break
-    case 'pop':
-      tone(520 * vary(0.15), 940 * vary(0.1), 0.14, 'triangle', 0.3)
-      noise('highpass', 1800, 3600, 0.4, 0.18, 0.1)
-      break
-    case 'hop':
-      tone(180 * vary(0.2), 90, 0.09, 'sine', 0.22)
-      break
-    case 'menu':
-    case 'click':
-      tone(660, 880, 0.06, 'triangle', 0.18)
-      break
-    case 'test':
-      tone(440, 440, 0.08, 'sine', 0.2)
-      break
-    case 'quest':
-      tone(392, 523.3, 0.12, 'triangle', 0.22)
-      tone(523.3, 659.3, 0.14, 'triangle', 0.18, 0.1)
       break
     case 'chop':
       tone(170 * vary(0.15), 55, 0.1, 'sine', 0.5)
@@ -288,12 +278,39 @@ export function playSfx(name: SfxName) {
       tone(880, 880, 0.09, 'sine', 0.1)
       tone(1174, 1174, 0.12, 'sine', 0.07, 0.07)
       break
+    case 'menu':
+      noise('bandpass', 700, 180, 0.9, 0.18, 0.12)
+      tone(420, 300, 0.12, 'triangle', 0.1)
+      break
+    case 'test':
+      tone(523, 523, 0.16, 'sine', 0.2)
+      tone(659, 659, 0.16, 'sine', 0.2, 0.12)
+      tone(784, 784, 0.3, 'sine', 0.22, 0.24)
+      break
+    case 'quest':
+      tone(523, 523, 0.14, 'triangle', 0.2)
+      tone(659, 659, 0.14, 'triangle', 0.2, 0.11)
+      tone(784, 784, 0.14, 'triangle', 0.22, 0.22)
+      tone(1046, 1046, 0.4, 'triangle', 0.2, 0.33)
+      break
+    case 'hit':
+      tone(260, 90, 0.09, 'square', 0.3)
+      noise('lowpass', 2000, 600, 0.8, 0.07, 0.32)
+      break
+    case 'pop':
+      tone(300, 900, 0.12, 'sine', 0.3)
+      noise('highpass', 1800, 3600, 0.6, 0.1, 0.14, 0.02)
+      tone(900, 1400, 0.1, 'sine', 0.12, 0.08)
+      break
+    case 'hop':
+      tone(280, 520, 0.1, 'sine', 0.12)
+      break
   }
 }
 
 function startWind() {
   const c = ensure()
-  if (!c || !musicBus || windStarted) return
+  if (!c || !musicBus || windStarted || !audio.ambience) return
   windStarted = true
   const src = noiseSrc(c)
   const flt = c.createBiquadFilter()
@@ -301,7 +318,7 @@ function startWind() {
   flt.frequency.value = 420
   flt.Q.value = 0.4
   const g = c.createGain()
-  g.gain.value = 0.0
+  g.gain.value = 0
   g.gain.setTargetAtTime(0.05, c.currentTime, 3)
   const lfo = c.createOscillator()
   lfo.frequency.value = 0.07
@@ -343,7 +360,7 @@ function chirp(when: number) {
 function scheduleBird(delay: number) {
   window.clearTimeout(birdTimer)
   birdTimer = window.setTimeout(() => {
-    if (!ctx) return
+    if (!ctx || !audio.ambience) return
     chirp(0)
     if (rng() > 0.6) chirp(0.5 + rng() * 0.8)
     scheduleBird(4 + rng() * 8)
@@ -383,7 +400,7 @@ function pad(freqs: number[], dur: number) {
 }
 
 function startMusic() {
-  if (musicStarted) return
+  if (musicStarted || !audio.ambience) return
   musicStarted = true
   pad(CHORDS[0], 11)
   window.setInterval(() => {
@@ -401,38 +418,4 @@ function startMusic() {
     window.setTimeout(pluck, 2800 + rng() * 4200)
   }
   window.setTimeout(pluck, 4000)
-}
-
-
-export const audio = {
-  get master() {
-    const s = settings.get()
-    return s.muted ? 0 : s.master
-  },
-  get sfx() {
-    return settings.get().sfx > 0
-  },
-  get ambience() {
-    return settings.get().music > 0
-  },
-}
-
-let lastSfxVol = 0.9
-export function setSfx(on: boolean) {
-  const cur = settings.get().sfx
-  if (on) settings.set({ sfx: cur > 0 ? cur : lastSfxVol })
-  else {
-    if (cur > 0) lastSfxVol = cur
-    settings.set({ sfx: 0 })
-  }
-}
-
-let lastMusicVol = 0.55
-export function setAmbience(on: boolean) {
-  const cur = settings.get().music
-  if (on) settings.set({ music: cur > 0 ? cur : lastMusicVol })
-  else {
-    if (cur > 0) lastMusicVol = cur
-    settings.set({ music: 0 })
-  }
 }

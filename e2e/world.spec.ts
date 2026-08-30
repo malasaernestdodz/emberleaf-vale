@@ -12,6 +12,7 @@ import {
   millWorld,
 } from '../src/lib/world'
 import { pickups } from '../src/lib/items'
+import { SLIME_SPAWN } from '../src/lib/slime'
 
 type Snap = {
   ready: boolean
@@ -514,15 +515,22 @@ test('chopping a tree yields wood with the axe', async ({ page }) => {
   const s0 = await snap(page)
   expect(s0.near).toBe('chop')
   expect(s0.tool).toBe('axe')
-  await page.keyboard.press('KeyE')
-  await page.waitForTimeout(2000)
-  const s1 = await snap(page)
-  expect(s1.inv.wood).toBeGreaterThanOrEqual(1)
+  let wood = 0
+  for (let i = 0; i < 8 && wood < 1; i++) {
+    await page.keyboard.press('KeyE')
+    await page.waitForTimeout(1700)
+    wood = (await snap(page)).inv.wood
+  }
+  expect(wood).toBeGreaterThanOrEqual(1)
 })
 
 test('pickup, inventory and throw', async ({ page }) => {
   const flower = pickups.find(
-    (p) => p.type === 'flower' && p.alive && TREES.every((t) => Math.hypot(t.x - p.x, t.z - p.z) > 2.5)
+    (p) =>
+      p.type === 'flower' &&
+      p.alive &&
+      TREES.every((t) => Math.hypot(t.x - p.x, t.z - p.z) > 2.5) &&
+      Math.hypot(p.x - SLIME_SPAWN.x, p.z - SLIME_SPAWN.z) > 4
   )
   expect(flower).toBeTruthy()
   const h = await api(page)

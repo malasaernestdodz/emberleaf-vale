@@ -1,8 +1,9 @@
 import { Canvas } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { initInput, onFirstInput } from './lib/input'
 import { audio, playSfx, setAmbience, setMaster, setSfx, unlockAudio } from './lib/audio'
 import { LITE } from './lib/flags'
+import { QUALITY_MAP, settings } from './lib/settings'
 import { colliderBlocks, colliderDims } from './lib/collide'
 import { SLOT_LABELS, SLOT_TYPES, inv, selected, type Item } from './lib/items'
 import { quests, questsDone } from './lib/quests'
@@ -109,6 +110,7 @@ export default function App() {
   const [masterPct, setMasterPct] = useState(Math.round(audio.master * 100))
   const [sfxOn, setSfxOn] = useState(audio.sfx)
   const [ambOn, setAmbOn] = useState(audio.ambience)
+  const cfg = useSyncExternalStore(settings.subscribe, settings.get)
   const [questView, setQuestView] = useState<QuestView[]>([])
   const [doneCount, setDoneCount] = useState(0)
   const [questFx, setQuestFx] = useState<{ bump: Record<string, boolean>; done: Record<string, boolean> }>({
@@ -143,26 +145,45 @@ export default function App() {
   useEffect(() => {
     initInput()
     onFirstInput(() => {
-      setStarted(true)
       unlockAudio()
+      if (LITE) setStarted(true)
     })
   }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'Escape' || e.repeat) return
-      if (game.book || game.sleeping || game.fishing) return
-      const open = !game.menu
-      game.menu = open
-      setMenuOpen(open)
-      if (open) {
-        document.exitPointerLock()
+      if (e.repeat) return
+      if (e.code === 'Escape') {
+        if (game.book || game.sleeping || game.fishing) return
+        const open = !game.menu
+        game.menu = open
+        setMenuOpen(open)
+        if (open) {
+          document.exitPointerLock()
+          setMasterPct(Math.round(audio.master * 100))
+          setSfxOn(audio.sfx)
+          setAmbOn(audio.ambience)
+          playSfx('menu')
+        } else {
+          playSfx('click')
+        }
+      } else if (e.code === 'KeyP' && !game.book && !game.sleeping && !game.fishing) {
+        const open = !game.menu
+        game.menu = open
+        setMenuOpen(open)
+        if (open) {
+          document.exitPointerLock()
+          playSfx('menu')
+        } else {
+          playSfx('click')
+        }
+      } else if (e.code === 'KeyM') {
+        const mute = audio.master > 0
+        setMaster(mute ? 0 : audio.prev || 0.8)
         setMasterPct(Math.round(audio.master * 100))
-        setSfxOn(audio.sfx)
-        setAmbOn(audio.ambience)
-        playSfx('menu')
-      } else {
-        playSfx('click')
+        game.toast = mute ? 'Sound muted' : 'Sound on'
+        game.toastT = 1.4
+        playSfx(mute ? 'back' : 'click')
       }
     }
     window.addEventListener('keydown', onKey)
@@ -210,6 +231,7 @@ export default function App() {
         colCount: COLLIDERS.length,
         nearCol,
       })
+      setMasterPct(Math.round(audio.master * 100))
       setQuestView(quests.map((q) => ({ id: q.id, title: q.title, desc: q.desc, progress: q.progress, target: q.target, done: q.done })))
       setDoneCount(questsDone())
       const bump: Record<string, boolean> = {}
@@ -249,24 +271,34 @@ export default function App() {
     playSfx('click')
   }
 
+  const qm = QUALITY_MAP[cfg.quality]
   const active = questView.filter((q) => !q.done).slice(0, 3)
   const hudHidden = stats.veil > 0.4 || menuOpen
+  const muted = audio.master <= 0
+  const volBars = muted ? 0 : Math.max(audio.master > 0 ? 1 : 0, Math.round(audio.master * 5))
+  const zone = stats.inside ? 'HEARTH COTTAGE' : game.insideMansion ? 'VALE MANOR' : stats.fishing ? 'STILLWATER POND' : 'EMBERLEAF VALE'
 
   return (
     <>
       <Canvas
-        shadows={!LITE}
-        dpr={LITE ? 1 : [1, 1.75]}
+        key={cfg.quality}
+        shadows={!LITE && qm.shadows}
+        dpr={LITE ? 1 : qm.dpr}
         gl={{ antialias: !LITE, powerPreference: 'high-performance' }}
         camera={{ fov: 55, near: 0.1, far: 420, position: [8, 7, 26] }}
       >
         <World />
       </Canvas>
       <div className="hud">
-        <h1>EMBERLEAF VALE</h1>
-        <div className="row">
-          x {stats.x.toFixed(1)} · y {stats.y.toFixed(2)} · z {stats.z.toFixed(1)} · {stats.fps} fps ·{' '}
-          {stats.drawCalls} draws
+        <div className="hud-tl">
+          <div className="hud-kicker">A POCKET WORLD OF QUIET SEASONS</div>
+          <h1>EMBERLEAF VALE</h1>
+          <div className="zone-chip">{zone}</div>
+          {cfg.showFps && (
+            <div className="perf-row">
+              {stats.fps} FPS · {stats.drawCalls} DRAWS · X {stats.x.toFixed(0)} · Z {stats.z.toFixed(0)}
+            </div>
+          )}
         </div>
         {stats.inside && <span className="badge">HOME SWEET HOME</span>}
         <div>
@@ -277,6 +309,26 @@ export default function App() {
             [C] collider debug {stats.showCol ? 'on' : 'off'}
           </button>
         </div>
+      </div>
+      <div className="hud-tr">
+        <button className="vol-chip clickable-ui" onClick={openMenu} aria-label="Sound settings" data-testid="vol-chip">
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+            {!muted && <path d="M16.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" fill="none" strokeWidth="1.7" strokeLinecap="round" />}
+            {muted && <path d="M16 9.5l5 5M21 9.5l-5 5" stroke="currentColor" fill="none" strokeWidth="1.7" strokeLinecap="round" />}
+          </svg>
+          <span className="vol-bars">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <i key={i} className={i < volBars ? 'on' : ''} />
+            ))}
+          </span>
+          <span className="vol-pct">{muted ? 'MUTE' : `${masterPct}`}</span>
+        </button>
+        <button className="gear clickable-ui" data-testid="gear" onClick={openMenu} aria-label="Open menu">
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zm8.9 3.8c0-.5-.05-1-.13-1.45l2.03-1.58-1.9-3.3-2.4.98a8.9 8.9 0 0 0-2.5-1.45L15.6 2.6h-3.8l-.4 2.6a8.9 8.9 0 0 0-2.5 1.45l-2.4-.98-1.9 3.3 2.03 1.58a8.4 8.4 0 0 0 0 2.9l-2.03 1.58 1.9 3.3 2.4-.98a8.9 8.9 0 0 0 2.5 1.45l.4 2.6h3.8l.4-2.6a8.9 8.9 0 0 0 2.5-1.45l2.4.98 1.9-3.3-2.03-1.58c.08-.45.13-.95.13-1.45z" fill="currentColor" />
+          </svg>
+        </button>
       </div>
       {stats.showCol && !menuOpen && (
         <div className="debug-panel">
@@ -309,14 +361,54 @@ export default function App() {
           </div>
         </div>
       )}
-      <div className={started ? 'intro hide' : 'intro'}>
+      {LITE && (
+        <div className={started ? 'intro hide' : 'intro'}>
           <div className="card">
             Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
             <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
             <kbd>G</kbd> throw · <kbd>1-6</kbd> items · left-click attack · <kbd>Esc</kbd> menu ·{' '}
-            <kbd>C</kbd> collider debug (sizes + labels) · scroll to zoom
+            <kbd>C</kbd> collider debug · scroll to zoom
           </div>
-      </div>
+        </div>
+      )}
+      {!LITE && !started && (
+        <div className="title" data-testid="title-screen">
+          <div className="title-top">A POCKET WORLD OF QUIET SEASONS</div>
+          <h1 className="title-logo">
+            EMBERLEAF <span>VALE</span>
+          </h1>
+          <div className="title-rule" />
+          <div className="title-sub">Gather. Chop. Fish. Rest — the valley keeps score.</div>
+          <div className="title-actions">
+            <button
+              className="t-btn primary"
+              data-testid="start"
+              onClick={() => {
+                unlockAudio()
+                setStarted(true)
+                playSfx('quest')
+              }}
+            >
+              ENTER THE VALE
+            </button>
+            <button
+              className="t-btn"
+              data-testid="title-settings"
+              onClick={() => {
+                unlockAudio()
+                openMenu()
+              }}
+            >
+              SETTINGS
+            </button>
+          </div>
+          <div className="title-keys">
+            <kbd>WASD</kbd> walk <kbd>E</kbd> interact <kbd>Space</kbd> jump <kbd>G</kbd> throw{' '}
+            <kbd>Esc</kbd> menu <kbd>M</kbd> mute
+          </div>
+          <div className="title-ver">v0.3 · sound · seasons · quests</div>
+        </div>
+      )}
       {stats.locked && !menuOpen && <div className="crosshair" />}
       {stats.nearLabel && !hudHidden && !stats.book && (
         <div className="prompt">
@@ -341,11 +433,6 @@ export default function App() {
           <p className="hint">[E] close</p>
         </div>
       )}
-      <button className="gear clickable-ui" data-testid="gear" onClick={openMenu} aria-label="Open menu">
-        <svg viewBox="0 0 24 24" aria-hidden>
-          <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zm8.9 3.8c0-.5-.05-1-.13-1.45l2.03-1.58-1.9-3.3-2.4.98a8.9 8.9 0 0 0-2.5-1.45L15.6 2.6h-3.8l-.4 2.6a8.9 8.9 0 0 0-2.5 1.45l-2.4-.98-1.9 3.3 2.03 1.58a8.4 8.4 0 0 0 0 2.9l-2.03 1.58 1.9 3.3 2.4-.98a8.9 8.9 0 0 0 2.5 1.45l.4 2.6h3.8l.4-2.6a8.9 8.9 0 0 0 2.5-1.45l2.4.98 1.9-3.3-2.03-1.58c.08-.45.13-.95.13-1.45z" fill="currentColor" />
-        </svg>
-      </button>
       {!hudHidden && (
         <div className="quests" data-testid="quest-hud">
           <div className="quests-head">
@@ -394,6 +481,11 @@ export default function App() {
               />
               <span className="menu-pct" data-testid="master-pct">{masterPct}</span>
             </label>
+            <div className="vol-meter" aria-hidden>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                <i key={i} className={masterPct > i * 10 ? 'on' : ''} />
+              ))}
+            </div>
             <label className="menu-row">
               <span>Sound effects</span>
               <input
@@ -409,7 +501,7 @@ export default function App() {
               />
             </label>
             <label className="menu-row">
-              <span>Ambience</span>
+              <span>Ambience &amp; music</span>
               <input
                 className="menu-check"
                 data-testid="amb-toggle"
@@ -433,10 +525,44 @@ export default function App() {
             >
               Test sound
             </button>
+            <div className="menu-section">Display</div>
+            <div className="menu-row quality-row">
+              <span>Quality</span>
+              <div className="seg">
+                {(['low', 'medium', 'high'] as const).map((qOpt) => (
+                  <button
+                    key={qOpt}
+                    className={cfg.quality === qOpt ? 'seg-btn on' : 'seg-btn'}
+                    disabled={LITE}
+                    data-testid={`quality-${qOpt}`}
+                    onClick={() => {
+                      settings.set({ quality: qOpt })
+                      playSfx('click')
+                    }}
+                  >
+                    {qOpt.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="menu-row">
+              <span>FPS &amp; draw counter</span>
+              <input
+                className="menu-check"
+                data-testid="fps-toggle"
+                type="checkbox"
+                checked={cfg.showFps}
+                onChange={(e) => {
+                  settings.set({ showFps: e.target.checked })
+                  playSfx('click')
+                }}
+              />
+            </label>
+            {LITE && <div className="menu-note">Quality is pinned to LOW in lite mode.</div>}
             <button className="menu-btn primary" data-testid="resume" onClick={closeMenu}>
               Back to the vale
             </button>
-            <p className="menu-hint">[Esc] close</p>
+            <p className="menu-hint">[Esc] close · [M] mute · [P] menu</p>
           </div>
         </div>
       )}
