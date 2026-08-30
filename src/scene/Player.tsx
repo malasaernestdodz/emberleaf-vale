@@ -23,7 +23,6 @@ import {
 import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } from '../lib/items'
 import { questEvent } from '../lib/quests'
 import { applySlimeHit } from '../lib/slime'
-import { endSys } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
 
 export function Player() {
@@ -54,7 +53,6 @@ export function Player() {
   const attackUntil = useRef(0)
 
   useFrame((_, delta) => {
-    const tFrame = performance.now()
     if (game.paused) return
     const raw = Math.min(delta, 0.5)
     game.time += raw
@@ -122,7 +120,6 @@ export function Player() {
       game.attack = 0
       if (axe.current) axe.current.visible = false
       if (sword.current) sword.current.visible = false
-      endSys('player', tFrame)
       return
     }
 

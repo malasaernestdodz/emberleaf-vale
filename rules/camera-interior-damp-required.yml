@@ -1,5 +1,5 @@
 id: camera-interior-damp-required
-language: TypeScript
+language: Tsx
 severity: error
 message: Player useFrame lost the damp(game.interior, ...) easing — the interior factor must be damped every frame for a smooth indoor↔outdoor zoom transition.
 note: See openspec specs camera-system (smooth transition).

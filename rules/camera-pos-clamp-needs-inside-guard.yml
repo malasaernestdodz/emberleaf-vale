@@ -1,5 +1,5 @@
 id: camera-pos-clamp-needs-inside-guard
-language: TypeScript
+language: Tsx
 severity: error
 message: Interior position clamp is unguarded — it must check the inside membership (game.inside / game.insideMansion / mill radius) or the camera stays locked inside the house box after the player exits.
 note: See openspec specs camera-system (release on exit).

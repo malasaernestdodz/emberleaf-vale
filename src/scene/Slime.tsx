@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { slime, updateSlime } from '../lib/slime'
+import { endSys } from '../lib/trace'
 import { game } from '../lib/world'
 import { getToonRamp } from './toonRamp'
 
@@ -11,6 +12,7 @@ export function Slime() {
   const ramp = getToonRamp()
 
   useFrame((_, delta) => {
+    const t0 = performance.now()
     const dt = Math.min(delta, 0.05)
     updateSlime(dt)
     const s = slime
@@ -25,6 +27,7 @@ export function Slime() {
       1 + breathe * 0.05 + sq * 0.22
     )
     body.current.position.y = 0.44 * body.current.scale.y
+    endSys('slime', t0)
   })
 
   return (

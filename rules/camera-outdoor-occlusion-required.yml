@@ -1,5 +1,5 @@
 id: camera-outdoor-occlusion-required
-language: TypeScript
+language: Tsx
 severity: error
 message: CameraRig useFrame lost the outdoor occlusion dolly (allowed = Math.min(allowed, Math.max(wall - 0.5, 0.8))) — without it the camera zooms out behind building walls after leaving a house and the view is blocked.
 note: See openspec specs camera-system (unoccluded outdoor zoom).

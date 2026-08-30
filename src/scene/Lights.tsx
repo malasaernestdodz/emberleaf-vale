@@ -1,8 +1,8 @@
 import { LITE } from '../lib/flags'
-import { QUALITY_MAP, settings } from '../lib/settings'
+import { QUALITY_MAP, useSettings } from '../lib/settings'
 
 export function Lights() {
-  const q = QUALITY_MAP[settings.get().quality]
+  const q = QUALITY_MAP[useSettings().quality]
   return (
     <>
       <hemisphereLight args={['#bfe3ff', '#8a7a55', 1.1]} />

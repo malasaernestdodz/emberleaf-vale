@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { pickups } from '../lib/items'
 import { mulberry32 } from '../lib/math'
+import { endSys } from '../lib/trace'
 import { groundHeight, game } from '../lib/world'
 import { getToonRamp } from './toonRamp'
 
@@ -104,6 +105,7 @@ export function Pickups() {
   }, [])
 
   useFrame((_, delta) => {
+    const t0 = performance.now()
     const dt = Math.min(delta, 0.05)
     for (const p of pickups) {
       if (!p.alive || !p.flying) continue
@@ -142,6 +144,7 @@ export function Pickups() {
       mesh.count = n
       mesh.instanceMatrix.needsUpdate = true
     }
+    endSys('pickups', t0)
   })
 
   return (

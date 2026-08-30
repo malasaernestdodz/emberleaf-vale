@@ -179,6 +179,7 @@ export function Grass() {
       n++
     }
     game.grass = n
+    game.grassInst = n
 
     const base = new THREE.PlaneGeometry(0.1, 1, 1, 3)
     base.translate(0, 0.5, 0)
@@ -271,7 +272,10 @@ export function Grass() {
     flowers.mat.uniforms.uTime.value += dt
     const gs = perfStore.get().grassScale
     const wantGrass = Math.floor(grass.count * gs)
-    if (grass.geo.instanceCount !== wantGrass) grass.geo.instanceCount = wantGrass
+    if (grass.geo.instanceCount !== wantGrass) {
+      grass.geo.instanceCount = wantGrass
+      game.grassInst = wantGrass
+    }
     const wantFlowers = Math.floor(flowers.count * gs)
     if (flowers.geo.instanceCount !== wantFlowers) flowers.geo.instanceCount = wantFlowers
     endSys('grass', t0)

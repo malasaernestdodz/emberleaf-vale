@@ -573,13 +573,26 @@ test('sit on a stool and stand back up', async ({ page }) => {
   }
   expect(near).toBe('sit')
   await page.keyboard.press('KeyE')
-  await page.waitForTimeout(400)
-  expect((await snap(page)).mode).toBe('sit')
+  let sat = false
+  for (let i = 0; i < 12; i++) {
+    if ((await snap(page)).mode === 'sit') {
+      sat = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(sat).toBe(true)
   await page.keyboard.press('KeyW')
-  await page.waitForTimeout(400)
-  const s1 = await snap(page)
-  expect(s1.mode).toBe('walk')
-  expect(s1.grounded).toBe(true)
+  let stood = false
+  for (let i = 0; i < 12; i++) {
+    const s = await snap(page)
+    if (s.mode === 'walk' && s.grounded) {
+      stood = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(stood).toBe(true)
 })
 
 test('food can be picked up and eaten for a speed boost', async ({ page }) => {

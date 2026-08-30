@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { aliveCount, inv, selected } from '../lib/items'
 import { audioSnapshot } from '../lib/audio'
+import { perfStore } from '../lib/perf'
+import { frameStats } from '../lib/trace'
 import { quests, questsDone } from '../lib/quests'
 import { SLIME_SPAWN, skipSlimeRespawn, slime } from '../lib/slime'
 import { game, houseLocal, mansionLocal, millLocal, MILL } from '../lib/world'
@@ -77,10 +79,17 @@ export function Probe() {
         windmill: round(game.windmill),
         fps: Math.round(game.fps),
         grass: game.grass,
+        grassInst: game.grassInst,
         drawCalls: game.drawCalls,
         tris: game.tris,
         trees: game.trees,
         rocks: game.rocks,
+        tier: perfStore.get().tier,
+        autoTune: perfStore.get().auto,
+        dpr: round(gl.getPixelRatio()),
+        frameP50: round(frameStats().p50),
+        frameP95: round(frameStats().p95),
+        showPerf: game.showPerf,
       }),
       teleport: (x: number, z: number) => game.teleport(x, z),
       setCamYaw: (y: number) => {

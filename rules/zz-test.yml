@@ -1,7 +1,0 @@
-id: t1
-language: TypeScript
-severity: error
-message: test
-rule:
-  pattern: camera.position.set(0, 0, 0)
-

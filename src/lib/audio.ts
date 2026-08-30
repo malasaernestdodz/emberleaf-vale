@@ -22,7 +22,10 @@ const CHORDS: number[][] = [
 
 function ensure(): AudioContext | null {
   if (!ctx) return null
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => void 0)
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => void 0)
+    return null
+  }
   return ctx.state === 'closed' ? null : ctx
 }
 
@@ -97,11 +100,25 @@ export function unlockAudio() {
     }
     applyVolumes()
     settings.subscribe(applyVolumes)
+    ctx.onstatechange = () => {
+      if (ctx?.state === 'running') {
+        startWind()
+        startMusic()
+        scheduleBird(2 + rng() * 3)
+      }
+    }
   }
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => void 0)
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => void 0)
+    return
+  }
   startWind()
   startMusic()
   scheduleBird(3 + rng() * 5)
+}
+
+if (typeof window !== 'undefined') {
+  unlockAudio()
 }
 
 function noiseSrc(c: AudioContext) {

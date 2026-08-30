@@ -35,6 +35,8 @@ jobs:
         run: npm run lint:sg
       - name: Type check + build
         run: npm run build
+      - name: Camera zoom regression (indoor <-> outdoor)
+        run: npm run test:camera
       - name: Math + browser E2E (Playwright, SwiftShader WebGL)
         run: npx playwright test
       - uses: actions/upload-artifact@v4

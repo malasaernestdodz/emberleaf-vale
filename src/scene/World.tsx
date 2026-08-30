@@ -18,6 +18,7 @@ import { Pickups } from './Pickups'
 import { Player } from './Player'
 import { Colliders } from './Colliders'
 import { CameraRig } from './CameraRig'
+import { Perf } from './Perf'
 import { Probe } from './Probe'
 import { Effects } from './Effects'
 import { buildGlassEnv } from './textures'
@@ -54,6 +55,7 @@ export function World() {
       <Player />
       <Colliders />
       <CameraRig />
+      <Perf />
       <Probe />
       <Effects />
     </>

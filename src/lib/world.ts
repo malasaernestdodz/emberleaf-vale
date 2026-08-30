@@ -502,6 +502,7 @@ export const game = {
   questVer: 0,
   fps: 60,
   grass: 0,
+  grassInst: 0,
   drawCalls: 0,
   tris: 0,
   trees: TREES.length,

@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "lint:sg": "ast-grep scan",
+    "test:camera": "playwright test e2e/camera.spec.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

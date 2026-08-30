@@ -1,5 +1,5 @@
 id: camera-no-direct-position-set
-language: TypeScript
+language: Tsx
 severity: error
 message: Camera position must flow through the damped pos.current and position.copy — a direct camera.position.set skips the indoor/outdoor zoom clamps.
 note: See openspec specs camera-system.

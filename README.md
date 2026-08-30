@@ -31,9 +31,18 @@ a two-floor mansion with a grand bed, a windmill with an interior spiral stairca
 ## Validation
 
 - `npm run build` — TypeScript strict + Vite production build
-- `npm run lint:sg` — ast-grep structural rules (determinism, collision arg safety)
+- `npm run lint:sg` — ast-grep structural rules: determinism, collision arg
+  safety, and the camera clamp drift guards (indoor ray clamp, outdoor
+  occlusion dolly, guarded position clamps, damped-only interior factor —
+  each verified to fire on injected drift)
+- `npm run test:camera` — dedicated camera regression: wall-distance math
+  invariants + the walk-in / zoom / walk-out house journey with an
+  unoccluded-line-of-sight invariant
 - `npm run test:e2e` — Playwright: controls, camera occlusion, collision math,
   house/mansion/windmill interiors, interactions — on SwiftShader WebGL
 - `e2e/math.spec.ts` — pure height-field/spiral invariants in Node
+
+CI runs OpenSpec (`openspec validate --all --strict`), ast-grep, build, the
+camera regression, then the full E2E suite.
 
 Full spec trail in `openspec/`.

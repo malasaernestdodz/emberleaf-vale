@@ -6,6 +6,7 @@ import { hash2, lerp, mulberry32, smoothstep } from '../lib/math'
 import { playSfx } from '../lib/audio'
 import { fallAngle, growScale, restBounce, treeLife, updateTrees } from '../lib/trees'
 import { game, ROCKS, TREES } from '../lib/world'
+import { endSys } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
 
 function colorize(g: THREE.BufferGeometry, c: [number, number, number], jitter: number, seed: number) {
@@ -105,6 +106,7 @@ export function Trees() {
   const prevPhase = useRef<string[]>(TREES.map(() => 'up'))
 
   useFrame((_, delta) => {
+    const t0 = performance.now()
     if (game.paused) return
     updateTrees(Math.min(delta, 0.05))
     for (let i = 0; i < TREES.length; i++) {
@@ -131,6 +133,7 @@ export function Trees() {
         prevPhase.current[i] = life.phase
       }
     }
+    endSys('trees', t0)
   })
 
   return (

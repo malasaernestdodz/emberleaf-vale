@@ -1,5 +1,5 @@
 id: camera-wheel-zoom-must-clamp
-language: TypeScript
+language: Tsx
 severity: error
 message: Wheel handler lost the camDist clamp — scroll zoom must stay within the bounded range or the zoom distances drift out of the validated envelope.
 note: See openspec specs camera-system.
