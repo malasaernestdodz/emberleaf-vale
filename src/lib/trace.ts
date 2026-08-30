@@ -90,7 +90,7 @@ export function frameStats() {
   const n = frameFill
   if (n === 0) return { p50: 0, p95: 0, max: 0, avg: 0 }
   sorted.set(frameRing.subarray(0, n))
-  Array.prototype.sort.call(sorted.subarray(0, n), (a: number, b: number) => a - b)
+  sorted.subarray(0, n).sort()
   const at = (p: number) => sorted[Math.min(n - 1, Math.floor(p * n))]
   let sum = 0
   for (let i = 0; i < n; i++) sum += sorted[i]

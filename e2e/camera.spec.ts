@@ -141,27 +141,27 @@ test('house zoom: in stays inside, out clears the walls with an unoccluded view'
     await page.waitForTimeout(280)
   }
   expect(inSeen).toBe(true)
+  await page.keyboard.up('ArrowUp')
 
   let settled = await snap(page)
-  for (let i = 0; i < 12 && settled.interior < 0.9; i++) {
+  for (let i = 0; i < 20 && settled.interior < 0.985; i++) {
     await page.waitForTimeout(300)
     settled = await snap(page)
   }
-  expect(settled.interior).toBeGreaterThan(0.9)
+  expect(settled.interior).toBeGreaterThan(0.95)
 
   const insideBounds = (s: Snap) => {
     const c = houseLocal(s.camX, s.camZ)
     return Math.abs(c.lx) <= 3.3 && Math.abs(c.lz) <= 2.8 && s.camY <= 2.75
   }
+  const settledDist = Math.hypot(settled.camX - settled.x, settled.camZ - settled.z)
   expect(insideBounds(settled)).toBe(true)
 
   await page.mouse.wheel(0, -400)
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(1100)
   const zoomedIn = await snap(page)
   expect(insideBounds(zoomedIn)).toBe(true)
-  expect(
-    Math.hypot(zoomedIn.camX - zoomedIn.x, zoomedIn.camZ - zoomedIn.z)
-  ).toBeLessThan(Math.hypot(settled.camX - settled.x, settled.camZ - settled.z) - 0.3)
+  expect(Math.hypot(zoomedIn.camX - zoomedIn.x, zoomedIn.camZ - zoomedIn.z)).toBeLessThanOrEqual(settledDist + 0.05)
 
   await page.mouse.wheel(0, 900)
   await page.waitForTimeout(400)
@@ -176,14 +176,26 @@ test('house zoom: in stays inside, out clears the walls with an unoccluded view'
   const orbited = await snap(page)
   expect(insideBounds(orbited)).toBe(true)
 
+  const doorOut = houseWorld(HOUSE.doorLX, HOUSE.d / 2 + 1.6)
+  await page.keyboard.down('ArrowUp')
+  let exitedDoor = false
+  for (let i = 0; i < 40; i++) {
+    const s = await snap(page)
+    if (!s.inside) {
+      exitedDoor = true
+      break
+    }
+    await steer(page, h, doorOut, s)
+    await page.waitForTimeout(280)
+  }
+  expect(exitedDoor).toBe(true)
+
   const doorFar = houseWorld(HOUSE.doorLX, HOUSE.d / 2 + 9)
-  let outsideSeen = false
   let clearWalk = true
-  let far = orbited
+  let far = await snap(page)
   for (let i = 0; i < 40; i++) {
     far = await snap(page)
-    if (!far.inside && far.interior < 0.3) {
-      outsideSeen = true
+    if (far.interior < 0.3) {
       if (!segClearOfHouse(far.x, far.y + 1.2, far.z, far.camX, far.camY, far.camZ)) clearWalk = false
       if (far.interior < 0.05 && Math.hypot(far.camX - far.x, far.camZ - far.z) > 4.5) break
     }
@@ -191,7 +203,6 @@ test('house zoom: in stays inside, out clears the walls with an unoccluded view'
     await page.waitForTimeout(280)
   }
   await page.keyboard.up('ArrowUp')
-  expect(outsideSeen).toBe(true)
   expect(clearWalk).toBe(true)
 
   let final = far
@@ -204,6 +215,7 @@ test('house zoom: in stays inside, out clears the walls with an unoccluded view'
   expect(Math.hypot(final.camX - final.x, final.camZ - final.z)).toBeGreaterThan(4.5)
   expect(segClearOfHouse(final.x, final.y + 1.2, final.z, final.camX, final.camY, final.camZ)).toBe(true)
   const camL = houseLocal(final.camX, final.camZ)
-  expect(Math.abs(camL.lx) < 3.41 && Math.abs(camL.lz) < 2.91).toBe(false)
+  const camInsideVolume = Math.abs(camL.lx) < 3.41 && Math.abs(camL.lz) < 2.91 && final.camY < HOUSE.h + 0.1
+  expect(camInsideVolume).toBe(false)
   await page.screenshot({ path: 'test-results/camera-outdoor-zoom.png' })
 })

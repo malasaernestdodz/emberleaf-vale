@@ -29,5 +29,7 @@
 
 - [x] 5.1 `npm run build` green (tsc strict + vite)
 - [x] 5.2 `npm run lint:sg` green
-- [x] 5.3 `npm run test:e2e` 32/32 green (workers 1, teleports derived from constants)
+- [x] 5.3 `npm run test:e2e` green (workers 1, CI retry, teleports derived from constants)
 - [x] 5.4 `openspec validate --all --strict` clean
+- [x] 5.5 `e2e/scale.spec.ts`: distance floors, player-relative proportions, tiling seal math, visual records
+- [x] 5.6 CI workflow: openspec strict gate, Playwright browser cache, HTML report artifacts, retries

@@ -4,16 +4,29 @@
 
 ### Requirement: Deterministic serial test runs
 
-The Playwright suite SHALL run with `workers: 1` and every building-related
-teleport/camera yaw SHALL be derived from world constants (`MANSION`, `MANSION_STAIR`,
-`MILL`, `houseWorld/mansionWorld/millWorld`) rather than hardcoded coordinates, so
-geometry changes cannot desync the suite.
+The Playwright suite SHALL run with `workers: 1`, one retry on CI, and every
+building-related teleport/camera yaw SHALL be derived from world constants
+(`MANSION`, `MANSION_STAIR`, `MILL`, `houseWorld/mansionWorld/millWorld`) rather
+than hardcoded coordinates, so geometry changes cannot desync the suite.
 
 #### Scenario: Constants-derived navigation
 
 - **WHEN** any building test teleports or steers the player
 - **THEN** the coordinates come from the imported world constants and the suite
   passes without per-test magic numbers
+
+### Requirement: CI gates the full contract
+
+GitHub Actions SHALL run, in order: `openspec validate --all --strict`,
+`npm run lint:sg`, `npm run build`, and the Playwright suite (SwiftShader,
+workers 1, one retry), publishing the HTML report and failure artifacts on every
+run; a red step SHALL fail the workflow.
+
+#### Scenario: Push lands green
+
+- **WHEN** a commit is pushed to main
+- **THEN** the workflow validates specs, scans structure, builds, runs all e2e
+  tests, and uploads artifacts — failing loudly on any step
 
 ### Requirement: 32-test regression gate
 
