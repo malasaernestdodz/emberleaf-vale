@@ -2,12 +2,14 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { resolveCollisions } from '../lib/collide'
+import { playSfx } from '../lib/audio'
 import { consumeClickEdge, consumeEdge, isDown } from '../lib/input'
 import { clamp, damp, dampAngle } from '../lib/math'
 import {
   INTERACTABLES,
   MANSION,
   MILL,
+  PLAZA,
   POND,
   SEATS,
   TREES,
@@ -18,6 +20,8 @@ import {
   mansionLocal,
 } from '../lib/world'
 import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } from '../lib/items'
+import { questEvent } from '../lib/quests'
+import { applySlimeHit } from '../lib/slime'
 import { getToonRamp } from './toonRamp'
 
 export function Player() {
@@ -46,6 +50,7 @@ export function Player() {
   const attackUntil = useRef(0)
 
   useFrame((_, delta) => {
+    if (game.paused) return
     const raw = Math.min(delta, 0.5)
     game.time += raw
 
@@ -59,7 +64,7 @@ export function Player() {
     const spaceEdge = consumeEdge('Space')
     const eEdge = consumeEdge('KeyE')
     const gEdge = consumeEdge('KeyG')
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < SLOT_TYPES.length; i++) {
       if (consumeEdge(`Digit${i + 1}`)) selected.slot = i
     }
 
@@ -70,6 +75,7 @@ export function Player() {
       if (t > 3.5) {
         game.sleeping = false
         game.sleepVeil = 0
+        questEvent('sleep')
         game.toast = 'You slept until morning'
         game.toastT = 3
       }
@@ -80,14 +86,12 @@ export function Player() {
     if (game.buffT > 0) game.buffT -= raw
     game.buff = damp(game.buff, game.buffT > 0 ? 1 : 0, 6, raw)
 
-    const uiOpen = game.book || game.sleeping
+    const uiOpen = game.book || game.sleeping || game.menu
 
     if (game.mode === 'sit') {
-      const stand =
-        consumeEdge('KeyE') || consumeEdge('Space') || consumeEdge('KeyW') || consumeEdge('KeyA') ||
-        consumeEdge('KeyS') || consumeEdge('KeyD')
+      const stand = spaceEdge || eEdge || wEdge || isDown('KeyA', 'KeyS', 'KeyD')
       consumeEdge('KeyG')
-      for (let i = 0; i < 5; i++) consumeEdge(`Digit${i + 1}`)
+      for (let i = 0; i < SLOT_TYPES.length; i++) consumeEdge(`Digit${i + 1}`)
       if (stand) {
         game.mode = 'walk'
         game.x = sitReturn.current.x
@@ -123,17 +127,20 @@ export function Player() {
         const hx = Math.sin(game.heading)
         const hz = Math.cos(game.heading)
         throwPickup(type, game.x + hx * 0.5, game.y + 1.0, game.z + hz * 0.5, hx, hz)
+        playSfx('throw')
         game.toast = `Threw the ${SLOT_LABELS[type].toLowerCase()}`
         game.toastT = 1.6
       }
     }
 
-    if (eEdge) {
+    if (eEdge && !game.menu) {
       if (game.book) {
         game.book = false
       } else if (game.fishing) {
         if (game.bite) {
           inv.fish++
+          playSfx('reel')
+          questEvent('fish')
           game.toast = '+1 Fish'
         } else {
           game.toast = 'It got away…'
@@ -146,22 +153,28 @@ export function Player() {
       } else if (!game.sleeping && (game.near === 'bed' || game.near === 'bed2')) {
         game.sleeping = true
         game.sleepT = 0
+        playSfx('sleep')
       } else if (!game.sleeping && game.near === 'book') {
         game.book = true
+        playSfx('page')
       } else if (game.near === 'pk' && pkRef.current) {
         const p = pkRef.current
         inv[p.type]++
         p.alive = false
+        playSfx('pickup')
+        if (p.type === 'flower') questEvent('flowers')
         game.toast = `+1 ${SLOT_LABELS[p.type]}`
         game.toastT = 2
       } else if (game.near === 'chop' && chopUntil.current <= game.time) {
         chopUntil.current = game.time + 1.5
         woodGiven.current = false
+        playSfx('chop')
       } else if (game.near === 'fish') {
         game.fishing = true
         game.bite = false
         fishT.current = 0
         castTime.current = 2 + rng.current() * 2.5
+        playSfx('splash')
       } else if (game.near === 'sit' && seatRef.current) {
         sitReturn.current = { x: game.x, z: game.z, heading: game.heading }
         game.x = seatRef.current.x
@@ -174,8 +187,9 @@ export function Player() {
         game.grounded = false
         game.tool = ''
         if (axe.current) axe.current.visible = false
-      } else if (selected.slot === 4 && inv.food > 0) {
+      } else if (SLOT_TYPES[selected.slot] === 'food' && inv.food > 0) {
         inv.food--
+        playSfx('eat')
         game.buffT = 10
         game.toast = 'Yum! Feeling energetic'
         game.toastT = 2
@@ -187,6 +201,7 @@ export function Player() {
       if (!woodGiven.current && game.chop > 0.5) {
         woodGiven.current = true
         inv.wood++
+        questEvent('chop')
         game.toast = '+1 Wood'
         game.toastT = 2
       }
@@ -202,9 +217,18 @@ export function Player() {
       game.chop === 0 &&
       attackUntil.current <= game.time
     ) {
-      attackUntil.current = game.time + 0.45
+      attackUntil.current = game.time + 0.9
+      playSfx('swing')
+      const hxF = Math.sin(game.heading)
+      const hzF = Math.cos(game.heading)
+      const res = applySlimeHit(game.x, game.z, hxF, hzF)
+      if (res === 'hit') playSfx('hit')
+      else if (res === 'pop') {
+        playSfx('pop')
+        questEvent('slime')
+      }
     }
-    game.attack = attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / 0.45 : 0
+    game.attack = attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / 0.9 : 0
     const attacking = game.attack > 0
 
     if (game.fishing) {
@@ -213,6 +237,7 @@ export function Player() {
         if (fishT.current > castTime.current) {
           game.bite = true
           biteT.current = 1.5
+          playSfx('bite')
         }
       } else {
         biteT.current -= raw
@@ -223,6 +248,19 @@ export function Player() {
           game.toastT = 2.5
         }
       }
+    }
+
+    if (game.mode === 'sit') {
+      root.current.position.set(game.x, game.y, game.z)
+      root.current.rotation.y = game.heading
+      legL.current.rotation.x = 1.3
+      legR.current.rotation.x = 1.3
+      armL.current.rotation.x = -0.25
+      armR.current.rotation.x = -0.25
+      body.current.position.y = 0
+      body.current.rotation.x = 0
+      body.current.scale.set(1, 1, 1)
+      return
     }
 
     const frozen = uiOpen || game.fishing
@@ -278,13 +316,17 @@ export function Player() {
       game.grounded = false
     }
     if (!game.grounded) {
-      game.vy -= 16 * raw
-      game.y += game.vy * raw
-      if (game.y <= gh) {
-        if (game.vy < -7) squash.current = 1
-        game.y = gh
-        game.vy = 0
-        game.grounded = true
+      const vsteps = Math.max(1, Math.ceil(raw / 0.016))
+      const vdt = raw / vsteps
+      for (let i = 0; i < vsteps; i++) {
+        game.vy -= 16 * vdt
+        game.y += game.vy * vdt
+        if (game.y <= gh) {
+          if (game.vy < -7) squash.current = 1
+          game.y = gh
+          game.vy = 0
+          game.grounded = true
+        }
       }
     } else if (gh < game.y - 0.5) {
       game.grounded = false
@@ -301,6 +343,7 @@ export function Player() {
     game.interior2 = damp(game.interior2, game.insideMansion ? 1 : 0, 4, raw)
     const mdMill = Math.hypot(game.x - MILL.x, game.z - MILL.z)
     game.interior3 = damp(game.interior3, mdMill < MILL.rIn + 0.5 ? 1 : 0, 4, raw)
+    if (Math.hypot(game.x - PLAZA.x, game.z - PLAZA.z) < 5) questEvent('plaza')
 
     const sp = Math.hypot(game.vx, game.vz)
     if (game.mode === 'walk' && sp > 0.3) {
@@ -396,7 +439,7 @@ export function Player() {
     if (held.current) {
       const show = !game.fishing && game.mode !== 'sit' && inv[SLOT_TYPES[selected.slot]] > 0
       held.current.visible = show
-      for (let i = 0; i < 5; i++) held.current.children[i].visible = show && i === selected.slot
+      for (let i = 0; i < SLOT_TYPES.length; i++) held.current.children[i].visible = show && i === selected.slot
     }
   })
 
@@ -502,6 +545,10 @@ export function Player() {
           <mesh castShadow rotation-x={0.35}>
             <cylinderGeometry args={[0.06, 0.075, 0.11, 9]} />
             <meshToonMaterial color="#d9a05b" gradientMap={ramp} />
+          </mesh>
+          <mesh>
+            <sphereGeometry args={[0.1, 10, 8]} />
+            <meshToonMaterial color="#86e08a" gradientMap={ramp} transparent opacity={0.92} />
           </mesh>
         </group>
         <group ref={legR} position={[0.13, 0.38, 0]}>

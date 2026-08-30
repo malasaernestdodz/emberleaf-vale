@@ -34,7 +34,7 @@
 
 ## 6. Validation
 
-- [ ] 6.1 `npm run lint:sg` (ast-grep) passes
-- [ ] 6.2 `e2e/math.spec.ts` green (spiral monotonic, seams, floors, standables)
-- [ ] 6.3 Full E2E regression (17 tests) green
-- [ ] 6.4 Screenshots reviewed (exterior + interior)
+- [x] 6.1 `npm run lint:sg` (ast-grep) passes
+- [x] 6.2 `e2e/math.spec.ts` green (spiral monotonic, seams, floors, standables)
+- [x] 6.3 Full E2E regression (17 tests) green
+- [x] 6.4 Screenshots reviewed (exterior + interior)

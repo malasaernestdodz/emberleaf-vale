@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { aliveCount, inv, selected } from '../lib/items'
+import { audioSnapshot } from '../lib/audio'
+import { quests, questsDone } from '../lib/quests'
+import { SLIME_SPAWN, skipSlimeRespawn, slime } from '../lib/slime'
 import { game, houseLocal, mansionLocal, millLocal, MILL } from '../lib/world'
 
 const round = (v: number) => Math.round(v * 1000) / 1000
@@ -52,6 +55,23 @@ export function Probe() {
         inv: { ...inv },
         slot: selected.slot,
         pickups: aliveCount(),
+        menu: game.menu,
+        quests: {
+          ver: game.questVer,
+          done: questsDone(),
+          list: quests.map((q) => ({ id: q.id, progress: q.progress, target: q.target, done: q.done })),
+        },
+        audio: audioSnapshot(),
+        slime: {
+          x: round(slime.x),
+          y: round(slime.y),
+          z: round(slime.z),
+          state: slime.state,
+          hits: slime.hits,
+          visible: slime.state !== 'hidden',
+          spawnX: round(SLIME_SPAWN.x),
+          spawnZ: round(SLIME_SPAWN.z),
+        },
         millBase: round(MILL.base),
         windmill: round(game.windmill),
         fps: Math.round(game.fps),
@@ -65,6 +85,14 @@ export function Probe() {
       setCamYaw: (y: number) => {
         game.camYaw = y
       },
+      face: (x: number, z: number) => {
+        game.heading = Math.atan2(x - game.x, z - game.z)
+      },
+      setMenu: (open: boolean) => {
+        game.menu = open
+        if (open) document.exitPointerLock()
+      },
+      skipSlimeRespawn: () => skipSlimeRespawn(),
     }
   }, [])
 

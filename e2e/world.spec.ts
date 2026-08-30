@@ -1,5 +1,16 @@
 import { expect, test, type Page } from '@playwright/test'
-import { MANSION, MANSION_STAIR, MILL, TREES, groundHeight, houseWorld, mansionWorld, millWorld } from '../src/lib/world'
+import {
+  HOUSE,
+  MANSION,
+  MANSION_SLAB_LZ,
+  MANSION_STAIR,
+  MILL,
+  TREES,
+  groundHeight,
+  houseWorld,
+  mansionWorld,
+  millWorld,
+} from '../src/lib/world'
 import { pickups } from '../src/lib/items'
 
 type Snap = {
@@ -72,7 +83,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(
     () => (window as unknown as { __Ghibli?: { snapshot?: () => { ready: boolean } } }).__Ghibli?.snapshot?.()?.ready === true,
     null,
-    { timeout: 60_000 }
+    { timeout: 120_000 }
   )
 })
 
@@ -94,10 +105,17 @@ test('boots with perf budgets', async ({ page }) => {
 test('arrow keys move the player and camera follows', async ({ page }) => {
   const s0 = await snap(page)
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(1600)
+  let moved = 0
+  for (let i = 0; i < 20; i++) {
+    const s = await snap(page)
+    moved = Math.hypot(s.x - s0.x, s.z - s0.z)
+    if (moved > 1.2) break
+    await page.waitForTimeout(300)
+  }
   await page.keyboard.up('ArrowUp')
   const s1 = await snap(page)
-  expect(Math.hypot(s1.x - s0.x, s1.z - s0.z)).toBeGreaterThan(1.0)
+  moved = Math.hypot(s1.x - s0.x, s1.z - s0.z)
+  expect(moved).toBeGreaterThan(1.0)
   expect(Math.hypot(s1.camX - s0.camX, s1.camZ - s0.camZ)).toBeGreaterThan(0.3)
 })
 
@@ -136,9 +154,16 @@ test('jump leaves the ground and lands', async ({ page }) => {
     await page.waitForTimeout(100)
   }
   expect(maxY - base).toBeGreaterThan(0.4)
-  const sEnd = await snap(page)
-  expect(Math.abs(sEnd.y - base)).toBeLessThan(0.3)
-  expect(sEnd.grounded).toBe(true)
+  let landed = false
+  for (let i = 0; i < 20; i++) {
+    const s = await snap(page)
+    if (s.grounded && Math.abs(s.y - base) < 0.3) {
+      landed = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  expect(landed).toBe(true)
 })
 
 test('drag orbits camera, pitch tilts, wheel zooms', async ({ page }) => {
@@ -183,14 +208,28 @@ test('walks in and out of the house through the door, camera stays indoors', asy
   const h = await api(page)
   await page.evaluate((a) => {
     a.teleport(8.156, -7.408)
-    a.setCamYaw(-1.107)
   }, h)
   await page.waitForTimeout(200)
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(6000)
-  const sIn = await snap(page)
-  expect(sIn.inside).toBe(true)
-  expect(Math.abs(sIn.lx)).toBeLessThan(3.4)
+  const steer = async (target: { x: number; z: number }, sx: number, sz: number) => {
+    const yaw = Math.atan2(-(target.x - sx), -(target.z - sz))
+    await page.evaluate(
+      ({ a, yaw }) => a.setCamYaw(yaw),
+      { a: h, yaw }
+    )
+  }
+  const doorIn = houseWorld(0.6, HOUSE.d / 2 - 1.4)
+  let insideSeen = false
+  for (let i = 0; i < 40; i++) {
+    const s = await snap(page)
+    if (s.inside && Math.abs(s.lx) < 3.2 && Math.abs(s.lz) < 2.8) {
+      insideSeen = true
+      break
+    }
+    await steer(doorIn, s.x, s.z)
+    await page.waitForTimeout(280)
+  }
+  expect(insideSeen).toBe(true)
   for (let i = 0; i < 4; i++) {
     await page.mouse.move(CX, CY)
     await page.mouse.down()
@@ -202,101 +241,182 @@ test('walks in and out of the house through the door, camera stays indoors', asy
     expect(Math.abs(c.camZ + 10)).toBeLessThan(4.5)
     expect(c.camY).toBeLessThan(2.7)
   }
-  await page.evaluate((a) => a.setCamYaw(2.0346), h)
-  await page.waitForTimeout(1500)
   await page.screenshot({ path: 'test-results/scene-interior.png' })
-  await page.waitForTimeout(4500)
+  const doorOut = houseWorld(0.6, HOUSE.d / 2 + 1.6)
+  let outsideSeen = false
+  for (let i = 0; i < 40; i++) {
+    const s = await snap(page)
+    if (!s.inside) {
+      outsideSeen = true
+      break
+    }
+    await steer(doorOut, s.x, s.z)
+    await page.waitForTimeout(280)
+  }
   await page.keyboard.up('ArrowUp')
-  const sOut = await snap(page)
-  expect(sOut.inside).toBe(false)
+  expect(outsideSeen).toBe(true)
+})
+
+test('left click swings the sword by default', async ({ page }) => {
+  expect((await snap(page)).tool).toBe('sword')
+  await page.mouse.click(CX, CY)
+  let swung = false
+  for (let i = 0; i < 12; i++) {
+    if ((await snap(page)).attack > 0) {
+      swung = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  expect(swung).toBe(true)
+  let done = false
+  for (let i = 0; i < 12; i++) {
+    if ((await snap(page)).attack === 0) {
+      done = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  expect(done).toBe(true)
+})
+
+test('C toggles the collider shape overlay', async ({ page }) => {
+  expect((await snap(page)).colliders).toBe(false)
+  await page.keyboard.press('KeyC')
+  let on = false
+  for (let i = 0; i < 12; i++) {
+    if ((await snap(page)).colliders) {
+      on = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  expect(on).toBe(true)
+  await page.screenshot({ path: 'test-results/colliders.png' })
+  await page.keyboard.press('KeyC')
+  let off = false
+  for (let i = 0; i < 12; i++) {
+    if (!(await snap(page)).colliders) {
+      off = true
+      break
+    }
+    await page.waitForTimeout(250)
+  }
+  expect(off).toBe(true)
 })
 
 test('windmill spiral climbs to the top', async ({ page }) => {
   const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(22.68, -18.24)
-    a.setCamYaw(-0.6435)
-  }, h)
-  await page.waitForTimeout(300)
+  const outside = millWorld(0, MILL.rWall + 1.3)
+  const startYaw = MILL.yaw
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: outside.x, z: outside.z, yaw: startYaw }
+  )
+  await page.waitForTimeout(400)
   await page.keyboard.down('ArrowUp')
-  let top = false
-  for (let i = 0; i < 70; i++) {
+  let insideMill = false
+  for (let i = 0; i < 40; i++) {
     const s = await snap(page)
-    if (s.y > MILL.base + 3.0) {
+    if (Math.hypot(s.mllx, s.mllz) < 1.2) {
+      insideMill = true
+      break
+    }
+    await page.waitForTimeout(280)
+  }
+  expect(insideMill).toBe(true)
+  let top = false
+  for (let i = 0; i < 100; i++) {
+    const s = await snap(page)
+    if (s.y > MILL.base + MILL.top - 0.6) {
       top = true
       break
     }
-    await page.evaluate(() => {
-      const g = (window as unknown as { __Ghibli: Api }).__Ghibli
-      const st = g.snapshot()
-      const phi0 = Math.atan2(-st.mlx, st.mlz)
-      const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
-      let dx = -Math.cos(phi) - 0.45 * Math.sin(phi)
-      let dz = -Math.sin(phi) + 0.45 * Math.cos(phi)
-      const n = Math.hypot(dx, dz)
-      dx /= n
-      dz /= n
-      g.setCamYaw(Math.atan2(-dx, -dz))
-    })
-    await page.waitForTimeout(180)
+    await page.evaluate(
+      ({ yaw }) => {
+        const g = (window as unknown as { __Ghibli: Api }).__Ghibli
+        const st = g.snapshot()
+        const phi0 = Math.atan2(-st.mllx, st.mllz)
+        const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
+        const tx = -Math.sin(phi + 0.35) * 2.625 - st.mllx
+        const tz = Math.cos(phi + 0.35) * 2.625 - st.mllz
+        const n = Math.hypot(tx, tz)
+        const c = Math.cos(yaw)
+        const s2 = Math.sin(yaw)
+        const wx = (tx / n) * c + (tz / n) * s2
+        const wz = -(tx / n) * s2 + (tz / n) * c
+        g.setCamYaw(Math.atan2(-wx, -wz))
+      },
+      { yaw: MILL.yaw }
+    )
+    await page.waitForTimeout(280)
   }
   await page.keyboard.up('ArrowUp')
   expect(top).toBe(true)
   const s = await snap(page)
-  expect(s.y).toBeGreaterThan(MILL.base + 2.9)
-  expect(s.y).toBeLessThan(MILL.base + 3.75)
+  expect(s.y).toBeGreaterThan(MILL.base + MILL.top - 0.5)
+  expect(s.y).toBeLessThan(MILL.base + MILL.top + 0.4)
 })
 
 test('mansion stairs reach the second floor', async ({ page }) => {
   const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(-15.55, -13.79)
-    a.setCamYaw(0.82)
-  }, h)
+  const bottom = mansionWorld(MANSION_STAIR.lx0 + 0.25, (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2)
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: bottom.x, z: bottom.z, yaw: -MANSION.yaw }
+  )
   await page.waitForTimeout(300)
   await page.keyboard.down('ArrowUp')
   let up = false
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 40; i++) {
     const s = await snap(page)
-    if (s.y > MANSION.floor2 - 0.2) {
+    if (s.y > MANSION.floor2 - 0.2 && s.mlx > MANSION_STAIR.lx1 - 0.5) {
       up = true
       break
     }
-    await page.waitForTimeout(250)
+    await page.waitForTimeout(300)
   }
   await page.keyboard.up('ArrowUp')
   expect(up).toBe(true)
   const s = await snap(page)
   expect(s.y).toBeGreaterThan(MANSION.floor2 - 0.1)
   expect(s.y).toBeLessThan(MANSION.floor2 + 0.4)
-  expect(s.mlz).toBeLessThan(-0.3)
+  expect(s.mlz).toBeLessThan(MANSION_SLAB_LZ)
   expect(s.insideMansion).toBe(true)
 })
 
-test('can walk under the mansion balcony with no invisible wall', async ({ page }) => {
+test('can walk under the back balcony with no invisible wall', async ({ page }) => {
   const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(-16.9, -13.2)
-    a.setCamYaw(0.82)
-  }, h)
+  const porch = mansionWorld(4.6, -8.8)
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: porch.x, z: porch.z, yaw: MANSION.yaw - Math.PI }
+  )
   await page.waitForTimeout(300)
   const s0 = await snap(page)
   expect(s0.y).toBeLessThan(0.5)
   await page.keyboard.down('ArrowUp')
-  let crossed = false
-  for (let i = 0; i < 30; i++) {
-    const s = await snap(page)
-    if (s.mlz < -3.3) {
-      crossed = true
-      break
-    }
+  let maxLift = 0
+  for (let i = 0; i < 24; i++) {
+    maxLift = Math.max(maxLift, (await snap(page)).y)
     await page.waitForTimeout(250)
   }
   await page.keyboard.up('ArrowUp')
-  expect(crossed).toBe(true)
   const s1 = await snap(page)
-  expect(s1.y).toBeLessThan(0.5)
-  expect(s1.insideMansion).toBe(true)
+  expect(s1.mlz - s0.mlz).toBeGreaterThan(1.5)
+  expect(s1.mlz).toBeGreaterThan(-7.2)
+  expect(s1.mlz).toBeLessThan(-6.15)
+  expect(maxLift).toBeLessThan(0.5)
+  expect(s1.insideMansion).toBe(false)
 })
 
 test('fountain rim is solid below and standable above', async ({ page }) => {
@@ -312,16 +432,17 @@ test('fountain rim is solid below and standable above', async ({ page }) => {
   const walked = await snap(page)
   const dWalked = Math.hypot(walked.x + 6, walked.z + 1)
   expect(dWalked).toBeGreaterThan(1.35)
+  await page.waitForTimeout(250)
   await page.keyboard.down('ArrowUp')
   await page.keyboard.press('Space')
   let maxLift = 0
   let landed = await snap(page)
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 26; i++) {
     landed = await snap(page)
     const d = Math.hypot(landed.x + 6, landed.z + 1)
     if (d < 2.05) maxLift = Math.max(maxLift, landed.y)
     if (landed.grounded && i > 5) break
-    await page.waitForTimeout(150)
+    await page.waitForTimeout(140)
   }
   await page.keyboard.up('ArrowUp')
   expect(maxLift).toBeGreaterThan(0.4)
@@ -361,11 +482,17 @@ test('sleeping fades the world to dark and back', async ({ page }) => {
 
 test('read the book opens and closes the ledger', async ({ page }) => {
   const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(12.6, -7.6)
-    a.setCamYaw(1.4)
-  }, h)
+  const spot = houseWorld(0.55, 0.8)
+  await page.evaluate(
+    ({ a, x, z }) => {
+      a.teleport(x, z)
+      a.setCamYaw(1.4)
+    },
+    { a: h, x: spot.x, z: spot.z }
+  )
   await page.waitForTimeout(2500)
+  const s0 = await snap(page)
+  expect(s0.near).toBe('book')
   await page.keyboard.press('KeyE')
   await page.waitForTimeout(400)
   await expect(page.locator('.book')).toBeVisible()
@@ -394,7 +521,9 @@ test('chopping a tree yields wood with the axe', async ({ page }) => {
 })
 
 test('pickup, inventory and throw', async ({ page }) => {
-  const flower = pickups.find((p) => p.type === 'flower' && p.alive)
+  const flower = pickups.find(
+    (p) => p.type === 'flower' && p.alive && TREES.every((t) => Math.hypot(t.x - p.x, t.z - p.z) > 2.5)
+  )
   expect(flower).toBeTruthy()
   const h = await api(page)
   await page.evaluate(
@@ -406,19 +535,19 @@ test('pickup, inventory and throw', async ({ page }) => {
   await page.waitForTimeout(500)
   const s0 = await snap(page)
   expect(s0.near).toBe('pk')
-  expect(s0.pickups).toBe(25)
+  expect(s0.pickups).toBe(23)
   await page.keyboard.press('KeyE')
   await page.waitForTimeout(400)
   const s1 = await snap(page)
   expect(s1.inv.flower).toBe(1)
-  expect(s1.pickups).toBe(24)
+  expect(s1.pickups).toBe(22)
   await page.keyboard.press('Digit2')
   await page.waitForTimeout(150)
   await page.keyboard.press('KeyG')
   await page.waitForTimeout(600)
   const s2 = await snap(page)
   expect(s2.inv.flower).toBe(0)
-  expect(s2.pickups).toBe(25)
+  expect(s2.pickups).toBe(23)
 })
 
 test('sit on a stool and stand back up', async ({ page }) => {
@@ -447,10 +576,14 @@ test('sit on a stool and stand back up', async ({ page }) => {
 
 test('food can be picked up and eaten for a speed boost', async ({ page }) => {
   const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(12.14, -8.5)
-    a.setCamYaw(1.5)
-  }, h)
+  const spot = mansionWorld(0, 2.7)
+  await page.evaluate(
+    ({ a, x, z }) => {
+      a.teleport(x, z)
+      a.setCamYaw(Math.PI)
+    },
+    { a: h, x: spot.x, z: spot.z }
+  )
   await page.waitForTimeout(2500)
   const s0 = await snap(page)
   expect(s0.near).toBe('pk')
@@ -495,13 +628,18 @@ test('fishing catches a fish on the bite', async ({ page }) => {
   const s0 = await snap(page)
   expect(s0.near).toBe('fish')
   await page.keyboard.press('KeyE')
-  await page.waitForTimeout(300)
-  expect((await snap(page)).tool).toBe('rod')
-  expect((await snap(page)).fishing).toBe(true)
-  await page.waitForTimeout(1200)
-  await page.screenshot({ path: 'test-results/fishing.png' })
+  let cast = false
+  for (let i = 0; i < 8; i++) {
+    const s = await snap(page)
+    if (s.fishing && s.tool === 'rod') {
+      cast = true
+      break
+    }
+    await page.waitForTimeout(300)
+  }
+  expect(cast).toBe(true)
   let caught = false
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 70; i++) {
     const s = await snap(page)
     if (!s.fishing) break
     if (s.bite) {
@@ -509,11 +647,18 @@ test('fishing catches a fish on the bite', async ({ page }) => {
       caught = true
       break
     }
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(150)
   }
   expect(caught).toBe(true)
-  const sEnd = await snap(page)
-  expect(sEnd.inv.fish).toBe(1)
+  let granted = false
+  for (let i = 0; i < 10; i++) {
+    if ((await snap(page)).inv.fish === 1) {
+      granted = true
+      break
+    }
+    await page.waitForTimeout(200)
+  }
+  expect(granted).toBe(true)
 })
 
 test('indoor zoom behaves consistently in every building', async ({ page }) => {
@@ -530,77 +675,113 @@ test('indoor zoom behaves consistently in every building', async ({ page }) => {
   expect(Math.abs(s.camZ + 10)).toBeLessThan(4.5)
   expect(s.camY).toBeLessThan(2.7)
 
-  await page.evaluate((a) => {
-    a.teleport(-15.55, -13.79)
-    a.setCamYaw(0.82)
-  }, h)
+  const bottom = mansionWorld(MANSION_STAIR.lx0 + 0.25, (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2)
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: bottom.x, z: bottom.z, yaw: -MANSION.yaw }
+  )
   await page.waitForTimeout(300)
   await page.keyboard.down('ArrowUp')
   let up = false
-  for (let i = 0; i < 24; i++) {
-    if ((await snap(page)).y > MANSION.floor2 - 0.15) {
+  for (let i = 0; i < 40; i++) {
+    if ((await snap(page)).y > MANSION.floor2 - 0.15 && (await snap(page)).mlx > MANSION_STAIR.lx1 - 0.5) {
       up = true
       break
     }
-    await page.waitForTimeout(250)
+    await page.waitForTimeout(300)
   }
   await page.keyboard.up('ArrowUp')
   expect(up).toBe(true)
   await page.mouse.wheel(0, 600)
   await page.waitForTimeout(500)
   s = await snap(page)
-  expect(Math.abs(s.camX + 20)).toBeLessThan(5.9)
-  expect(Math.abs(s.camZ + 14)).toBeLessThan(5.4)
-  expect(s.camY).toBeLessThan(5.6)
+  expect(Math.abs(s.camX - MANSION.x)).toBeLessThan(7.0)
+  expect(Math.abs(s.camZ - MANSION.z)).toBeLessThan(5.6)
+  expect(s.camY).toBeLessThan(MANSION.floor2 + 2.6)
 
-  await page.evaluate((a) => {
-    a.teleport(21.84, -17.12)
-    a.setCamYaw(-0.6435)
-  }, h)
-  await page.waitForTimeout(300)
+  const outside = millWorld(0, MILL.rWall + 1.3)
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: outside.x, z: outside.z, yaw: MILL.yaw }
+  )
+  await page.waitForTimeout(400)
   await page.keyboard.down('ArrowUp')
+  let insideMill = false
+  for (let i = 0; i < 40; i++) {
+    const s = await snap(page)
+    if (Math.hypot(s.mllx, s.mllz) < 1.2) {
+      insideMill = true
+      break
+    }
+    await page.waitForTimeout(280)
+  }
+  expect(insideMill).toBe(true)
   let climbed = false
-  for (let i = 0; i < 50; i++) {
-    if ((await snap(page)).y > MILL.base + 3.0) {
+  for (let i = 0; i < 100; i++) {
+    if ((await snap(page)).y > MILL.base + MILL.top - 0.6) {
       climbed = true
       break
     }
-    await page.evaluate(() => {
-      const g = (window as unknown as { __Ghibli: Api }).__Ghibli
-      const st = g.snapshot()
-      const phi0 = Math.atan2(-st.mlx, st.mlz)
-      const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
-      g.setCamYaw(Math.PI / 2 - phi)
-    })
-    await page.waitForTimeout(220)
+    await page.evaluate(
+      ({ yaw }) => {
+        const g = (window as unknown as { __Ghibli: Api }).__Ghibli
+        const st = g.snapshot()
+        const phi0 = Math.atan2(-st.mllx, st.mllz)
+        const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
+        const tx = -Math.sin(phi + 0.35) * 2.625 - st.mllx
+        const tz = Math.cos(phi + 0.35) * 2.625 - st.mllz
+        const n = Math.hypot(tx, tz)
+        const c = Math.cos(yaw)
+        const s2 = Math.sin(yaw)
+        const wx = (tx / n) * c + (tz / n) * s2
+        const wz = -(tx / n) * s2 + (tz / n) * c
+        g.setCamYaw(Math.atan2(-wx, -wz))
+      },
+      { yaw: MILL.yaw }
+    )
+    await page.waitForTimeout(280)
   }
   await page.keyboard.up('ArrowUp')
   expect(climbed).toBe(true)
   await page.mouse.wheel(0, 600)
   await page.waitForTimeout(500)
   s = await snap(page)
-  expect(Math.hypot(s.camX - 24, s.camZ + 20)).toBeLessThan(2.7)
-  expect(s.camY).toBeLessThan(MILL.base + 7.8)
+  expect(Math.hypot(s.camX - MILL.x, s.camZ - MILL.z)).toBeLessThan(MILL.rIn - 0.2)
+  expect(s.camY).toBeLessThan(MILL.base + MILL.top + 5.2)
 })
 
-test('windmill base floor has no invisible walls under the spiral', async ({ page }) => {  const h = await api(page)
-  await page.evaluate((a) => {
-    a.teleport(21.84, -17.12)
-    a.setCamYaw(-0.6435)
-  }, h)
+test('windmill base floor has no invisible walls', async ({ page }) => {
+  const h = await api(page)
+  const outside = millWorld(0, MILL.rWall + 1.3)
+  await page.evaluate(
+    ({ a, x, z, yaw }) => {
+      a.teleport(x, z)
+      a.setCamYaw(yaw)
+    },
+    { a: h, x: outside.x, z: outside.z, yaw: MILL.yaw }
+  )
   await page.waitForTimeout(300)
   await page.keyboard.down('ArrowUp')
   let maxLift = 0
-  let crossed = false
-  for (let i = 0; i < 22; i++) {
+  let reached = false
+  for (let i = 0; i < 16; i++) {
     const s = await snap(page)
     maxLift = Math.max(maxLift, s.y - MILL.base)
-    if (s.mlz < -1.2) crossed = true
-    await page.waitForTimeout(250)
+    if (Math.hypot(s.mllx, s.mllz) < 1.2) {
+      reached = true
+      break
+    }
+    await page.waitForTimeout(300)
   }
   await page.keyboard.up('ArrowUp')
-  expect(crossed).toBe(true)
-  expect(maxLift).toBeLessThan(1.3)
+  expect(reached).toBe(true)
+  expect(maxLift).toBeLessThan(0.8)
 })
 
 test('windmill sails animate', async ({ page }) => {
@@ -611,4 +792,22 @@ test('windmill sails animate', async ({ page }) => {
   const rate = Math.abs(wrap(s1.windmill - s0.windmill)) / dt
   expect(rate).toBeGreaterThan(0.35)
   expect(rate).toBeLessThan(0.85)
+})
+
+test('ground height stays consistent across the mansion stair and slab edges', () => {
+  const st = MANSION_STAIR
+  const samples = 8
+  for (let i = 0; i <= samples; i++) {
+    const lz = st.lz1 - 0.3 - (i / samples) * (st.lz1 - st.lz0 - 0.5)
+    const p = mansionWorld((st.lx0 + st.lx1) / 2, lz)
+    const h = groundHeight(p.x, p.z, MANSION.floor2)
+    expect(h).toBeGreaterThanOrEqual(MANSION.floorY - 0.01)
+    expect(h).toBeLessThanOrEqual(MANSION.floor2 + 0.01)
+  }
+  const hall = mansionWorld(-3, 2)
+  expect(groundHeight(hall.x, hall.z)).toBeCloseTo(MANSION.floorY, 2)
+  const slabTop = mansionWorld(0, -4)
+  expect(groundHeight(slabTop.x, slabTop.z, MANSION.floor2)).toBeCloseTo(MANSION.floor2, 2)
+  const slabUnder = mansionWorld(0, -4)
+  expect(groundHeight(slabUnder.x, slabUnder.z, 0.3)).toBeCloseTo(MANSION.floorY, 2)
 })

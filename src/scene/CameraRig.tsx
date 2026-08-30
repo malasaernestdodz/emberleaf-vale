@@ -1,51 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { circleWall, obbWall } from '../lib/camera'
 import { clamp, damp, lerp } from '../lib/math'
 import { notifyInput } from '../lib/input'
 import { HOUSE, MANSION, MILL, game, groundHeight, houseLocal, houseWorld, mansionLocal, mansionWorld } from '../lib/world'
-
-function obbExit(
-  px: number,
-  pz: number,
-  dx: number,
-  dz: number,
-  cx: number,
-  cz: number,
-  hw: number,
-  hd: number,
-  yaw: number,
-  margin: number
-) {
-  const c = Math.cos(yaw)
-  const s = Math.sin(yaw)
-  const lx = c * (px - cx) - s * (pz - cz)
-  const lz = s * (px - cx) + c * (pz - cz)
-  const ldx = c * dx - s * dz
-  const ldz = s * dx + c * dz
-  let tExit = Infinity
-  if (Math.abs(ldx) > 1e-6) {
-    const t1 = (hw - margin - lx) / ldx
-    const t2 = (-hw + margin - lx) / ldx
-    tExit = Math.min(tExit, Math.max(t1, t2))
-  }
-  if (Math.abs(ldz) > 1e-6) {
-    const t1 = (hd - margin - lz) / ldz
-    const t2 = (-hd + margin - lz) / ldz
-    tExit = Math.min(tExit, Math.max(t1, t2))
-  }
-  return tExit
-}
-
-function circleExit(px: number, pz: number, dx: number, dz: number, cx: number, cz: number, R: number) {
-  const ox = px - cx
-  const oz = pz - cz
-  const bq = ox * dx + oz * dz
-  const cq = ox * ox + oz * oz - R * R
-  const disc = bq * bq - cq
-  if (disc < 0) return Infinity
-  return -bq + Math.sqrt(disc)
-}
 
 export function CameraRig() {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
@@ -117,17 +76,31 @@ export function CameraRig() {
 
     let allowed = game.camDist * lerp(1, 0.55, indoor)
     if (game.interior > 0.02) {
-      const t = obbExit(tx, tz, dirX, dirZ, HOUSE.x, HOUSE.z, HOUSE.w / 2, HOUSE.d / 2, HOUSE.yaw, 0.35)
-      allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior))
+      const t = obbWall(tx, tz, dirX, dirZ, HOUSE.x, HOUSE.z, HOUSE.w / 2, HOUSE.d / 2, HOUSE.yaw, 0.35)
+      if (t < Infinity) allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior))
     }
     if (game.interior2 > 0.02) {
-      const t = obbExit(tx, tz, dirX, dirZ, MANSION.x, MANSION.z, MANSION.w / 2, MANSION.d / 2, MANSION.yaw, 0.35)
-      allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior2))
+      const t = obbWall(tx, tz, dirX, dirZ, MANSION.x, MANSION.z, MANSION.w / 2, MANSION.d / 2, MANSION.yaw, 0.35)
+      if (t < Infinity) allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior2))
     }
     if (game.interior3 > 0.02) {
-      const t = circleExit(tx, tz, dirX, dirZ, MILL.x, MILL.z, MILL.rIn - 0.25)
-      allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior3))
+      const t = circleWall(tx, tz, dirX, dirZ, MILL.x, MILL.z, MILL.rIn - 0.25)
+      if (t < Infinity) allowed = Math.min(allowed, lerp(game.camDist, Math.max(t, 0.5), game.interior3))
     }
+
+    const camY = ty + dirY * allowed
+    const wall = Math.min(
+      camY < HOUSE.h + 0.5
+        ? obbWall(tx, tz, dirX, dirZ, HOUSE.x, HOUSE.z, HOUSE.w / 2, HOUSE.d / 2, HOUSE.yaw, 0.3)
+        : Infinity,
+      camY < MANSION.floor2 + 3.3
+        ? obbWall(tx, tz, dirX, dirZ, MANSION.x, MANSION.z, MANSION.w / 2, MANSION.d / 2, MANSION.yaw, 0.3)
+        : Infinity,
+      camY < MILL.base + MILL.top + 0.7
+        ? circleWall(tx, tz, dirX, dirZ, MILL.x, MILL.z, MILL.rWall + 0.7)
+        : Infinity
+    )
+    if (wall < Infinity) allowed = Math.min(allowed, Math.max(wall - 0.5, 0.8))
 
     pos.current.x = damp(pos.current.x, tx + dirX * allowed, 7, dt)
     pos.current.y = damp(pos.current.y, ty + dirY * allowed, 7, dt)
@@ -137,7 +110,7 @@ export function CameraRig() {
     look.current.z = damp(look.current.z, tz, 12, dt)
 
     pos.current.y = Math.max(pos.current.y, groundHeight(pos.current.x, pos.current.z, pos.current.y) + 0.35, 0.55)
-    if (game.interior > 0.5) {
+    if (game.interior > 0.5 && game.inside) {
       const l = houseLocal(pos.current.x, pos.current.z)
       const clx = clamp(l.lx, -3.15, 3.15)
       const clz = clamp(l.lz, -2.65, 2.65)
@@ -148,7 +121,7 @@ export function CameraRig() {
       }
       pos.current.y = Math.min(pos.current.y, 2.55)
     }
-    if (game.interior2 > 0.5) {
+    if (game.interior2 > 0.5 && game.insideMansion) {
       const m = mansionLocal(pos.current.x, pos.current.z)
       const cmx = clamp(m.lx, -MANSION.w / 2 + 0.35, MANSION.w / 2 - 0.35)
       const cmz = clamp(m.lz, -MANSION.d / 2 + 0.35, MANSION.d / 2 - 0.35)
@@ -159,7 +132,7 @@ export function CameraRig() {
       }
       pos.current.y = Math.min(pos.current.y, MANSION.floor2 + 2.5)
     }
-    if (game.interior3 > 0.5) {
+    if (game.interior3 > 0.5 && Math.hypot(tx - MILL.x, tz - MILL.z) < MILL.rIn + 0.5) {
       const mdx = pos.current.x - MILL.x
       const mdz = pos.current.z - MILL.z
       const dd = Math.hypot(mdx, mdz)

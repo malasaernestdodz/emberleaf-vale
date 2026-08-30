@@ -1,8 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { hash2, lerp, mulberry32, smoothstep } from '../lib/math'
-import { ROCKS, TREES } from '../lib/world'
+import { playSfx } from '../lib/audio'
+import { fallAngle, growScale, restBounce, treeLife, updateTrees } from '../lib/trees'
+import { game, ROCKS, TREES } from '../lib/world'
 import { getToonRamp } from './toonRamp'
 
 function colorize(g: THREE.BufferGeometry, c: [number, number, number], jitter: number, seed: number) {
@@ -72,27 +75,16 @@ function rockGeo(seed: number) {
 }
 
 export function Trees() {
-  const meshes = useMemo(() => {
-    const variants = [
+  const { variants, rockMerged } = useMemo(() => {
+    const vars = [
       treeVariant(11, [0.83, 0.52, 0.16]),
       treeVariant(23, [0.9, 0.68, 0.22]),
       treeVariant(37, [0.58, 0.7, 0.24]),
     ]
+    const rockParts: THREE.BufferGeometry[] = []
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
     const e = new THREE.Euler()
-    const treeParts: THREE.BufferGeometry[] = []
-    for (const t of TREES) {
-      e.set(0, t.yaw, 0)
-      q.setFromEuler(e)
-      m.compose(new THREE.Vector3(t.x, t.y, t.z), q, new THREE.Vector3(t.s, t.s, t.s))
-      const g = variants[t.variant].clone()
-      g.applyMatrix4(m)
-      treeParts.push(g)
-    }
-    const treeMerged = mergeGeometries(treeParts, false)!
-
-    const rockParts: THREE.BufferGeometry[] = []
     for (let i = 0; i < ROCKS.length; i++) {
       const k = ROCKS[i]
       e.set(0, k.yaw, 0)
@@ -102,19 +94,59 @@ export function Trees() {
       g.applyMatrix4(m)
       rockParts.push(g)
     }
-    const rockMerged = mergeGeometries(rockParts, false)!
-    return { treeMerged, rockMerged }
+    return { variants: vars, rockMerged: mergeGeometries(rockParts, false)! }
   }, [])
 
-  const ramp = getToonRamp()
+  const material = useMemo(
+    () => new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: getToonRamp() }),
+    []
+  )
+  const groups = useRef<(THREE.Group | null)[]>([])
+  const prevPhase = useRef<string[]>(TREES.map(() => 'up'))
+
+  useFrame((_, delta) => {
+    if (game.paused) return
+    updateTrees(Math.min(delta, 0.05))
+    for (let i = 0; i < TREES.length; i++) {
+      const t = TREES[i]
+      const life = treeLife[i]
+      const g = groups.current[i]
+      if (!g) continue
+      if (life.phase === 'up') {
+        g.rotation.set(0, t.yaw, Math.sin(game.time * 46 + i * 2.3) * 0.05 * life.shake)
+        g.scale.setScalar(t.s)
+      } else if (life.phase === 'fall') {
+        g.rotation.order = 'YXZ'
+        g.rotation.set(fallAngle(life.t), life.dir, 0)
+      } else if (life.phase === 'down') {
+        g.rotation.set(fallAngle(1) + restBounce(life.t), life.dir, 0)
+      } else {
+        g.rotation.order = 'XYZ'
+        g.rotation.set(0, t.yaw, 0)
+        g.scale.setScalar(t.s * growScale(life.t))
+      }
+      if (prevPhase.current[i] !== life.phase) {
+        if (life.phase === 'fall') playSfx('creak')
+        else if (life.phase === 'down') playSfx('crash')
+        prevPhase.current[i] = life.phase
+      }
+    }
+  })
+
   return (
-    <>
-      <mesh geometry={meshes.treeMerged} castShadow receiveShadow>
-        <meshToonMaterial vertexColors gradientMap={ramp} />
-      </mesh>
-      <mesh geometry={meshes.rockMerged} castShadow receiveShadow>
-        <meshToonMaterial vertexColors gradientMap={ramp} />
-      </mesh>
-    </>
+    <group>
+      {TREES.map((t, i) => (
+        <group
+          key={i}
+          ref={(el) => {
+            groups.current[i] = el
+          }}
+          position={[t.x, t.y, t.z]}
+        >
+          <mesh geometry={variants[t.variant]} material={material} castShadow receiveShadow />
+        </group>
+      ))}
+      <mesh geometry={rockMerged} material={material} castShadow receiveShadow />
+    </group>
   )
 }

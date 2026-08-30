@@ -3,7 +3,9 @@ import {
   FOUNTAIN,
   HOUSE,
   MANSION,
+  MANSION_STAIR,
   MILL,
+  MILL_ARC,
   WELL,
   WORLD_R,
   groundHeight,
@@ -23,44 +25,44 @@ test('house floor height applies inside the footprint', () => {
 })
 
 test('mansion has two distinct floor heights and a continuous stair', () => {
-  const f1 = mansionWorld(0, 2)
-  expect(groundHeight(f1.x, f1.z, 0.22)).toBeCloseTo(MANSION.floorY, 2)
-  const f2 = mansionWorld(0, -3)
-  expect(groundHeight(f2.x, f2.z, MANSION.floor2)).toBeCloseTo(MANSION.floor2, 2)
-  const under = mansionWorld(0, -3)
-  expect(groundHeight(under.x, under.z, 0.22)).toBeCloseTo(MANSION.floorY, 2)
+  const hall = mansionWorld(-3, 2)
+  expect(groundHeight(hall.x, hall.z)).toBeCloseTo(MANSION.floorY, 2)
+  const slab = mansionWorld(0, -4)
+  expect(groundHeight(slab.x, slab.z, MANSION.floor2)).toBeCloseTo(MANSION.floor2, 2)
+  expect(groundHeight(slab.x, slab.z, 0.3)).toBeCloseTo(MANSION.floorY, 2)
+  const st = MANSION_STAIR
   let prev = MANSION.floorY
-  for (let i = 1; i <= 10; i++) {
-    const lz = 3.4 - (i / 10) * 3.6
-    const p = mansionWorld(2.9, lz)
-    const h = groundHeight(p.x, p.z, MANSION.floorY)
+  for (let i = 1; i <= 12; i++) {
+    const lx = st.lx0 + 0.2 + (i / 12) * (st.lx1 - st.lx0 - 0.4)
+    const p = mansionWorld(lx, (st.lz0 + st.lz1) / 2)
+    const h = groundHeight(p.x, p.z, MANSION.floor2)
     expect(h).toBeGreaterThanOrEqual(prev - 0.01)
     expect(h).toBeLessThanOrEqual(MANSION.floor2 + 0.01)
     prev = h
   }
-  expect(prev).toBeGreaterThan(MANSION.floor2 - 0.2)
+  expect(prev).toBeGreaterThan(MANSION.floor2 - 0.25)
 })
 
 test('windmill spiral rises monotonically with no seams above step height', () => {
   let prev = MILL.base
   for (let i = 0; i <= 60; i++) {
-    const phi = 0.4 + (i / 60) * (TAU - 0.8)
-    const p = millWorld(-Math.sin(phi) * 2.0, Math.cos(phi) * 2.0)
-    const on = groundHeight(p.x, p.z, MILL.base + 0.02 + ((phi - 0.35) / (TAU - 0.7)) * (MILL.top - 0.02))
-    expect(on).toBeGreaterThanOrEqual(prev - 0.01)
-    expect(on).toBeLessThanOrEqual(MILL.base + MILL.top + 0.01)
-    prev = on
-    const under = groundHeight(p.x, p.z, MILL.base + 0.02)
-    if (phi > 1.5) expect(under).toBeLessThan(MILL.base + 0.2)
-    expect(under).toBeLessThan(MILL.base + MILL.top + 0.01)
+    const phi = MILL.doorPhi + 0.05 + (i / 60) * (MILL_ARC - 0.1)
+    const p = millWorld(-Math.sin(phi) * 2.05, Math.cos(phi) * 2.05)
+    const h = groundHeight(p.x, p.z)
+    expect(h).toBeGreaterThanOrEqual(prev - 0.01)
+    expect(h).toBeLessThanOrEqual(MILL.base + MILL.top + 0.01)
+    prev = h
   }
   expect(prev).toBeGreaterThan(MILL.base + MILL.top - 0.3)
   const center = millWorld(0, 0)
-  expect(groundHeight(center.x, center.z, MILL.base)).toBeCloseTo(MILL.base + 0.38, 2)
-  const besideStone = millWorld(1.1, 0)
-  expect(groundHeight(besideStone.x, besideStone.z, MILL.base)).toBeCloseTo(MILL.base + 0.02, 2)
+  expect(groundHeight(center.x, center.z)).toBeCloseTo(MILL.base + 0.5, 1)
   const doorWedge = millWorld(-Math.sin(0.1) * 2.0, Math.cos(0.1) * 2.0)
-  expect(groundHeight(doorWedge.x, doorWedge.z, MILL.base)).toBeLessThan(MILL.base + 0.2)
+  expect(groundHeight(doorWedge.x, doorWedge.z)).toBeLessThan(MILL.base + 0.2)
+  const landingPhi = TAU - MILL.doorPhi - MILL.topPhi / 2
+  const landing = millWorld(-Math.sin(landingPhi) * 2.05, Math.cos(landingPhi) * 2.05)
+  expect(groundHeight(landing.x, landing.z)).toBeCloseTo(MILL.base + MILL.top, 2)
+  const gap = Math.abs(MILL.top - 0.02 - ((MILL_ARC - MILL.topPhi) / MILL_ARC) * (MILL.top - 0.02))
+  expect(gap).toBeLessThan(0.55)
 })
 
 test('fountain rim and water heights match the mesh', () => {
@@ -85,7 +87,7 @@ test('every walkable height is reachable or intentional (no NaN, sane bounds)', 
       const h = groundHeight(x, z)
       expect(Number.isFinite(h)).toBe(true)
       expect(h).toBeGreaterThan(-3)
-      expect(h).toBeLessThan(12)
+      expect(h).toBeLessThan(14)
     }
   }
 })

@@ -6,10 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: regression-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,7 +21,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
+      - name: OpenSpec validation (strict)
+        run: |
+          npm install -g @fission-ai/openspec@1.11.0
+          openspec validate --all --strict
       - name: Structural scan (ast-grep)
         run: npm run lint:sg
       - name: Type check + build
@@ -28,5 +41,7 @@ jobs:
         if: always()
         with:
           name: playwright-results
-          path: test-results/
+          path: |
+            test-results/
+            playwright-report/
           retention-days: 7

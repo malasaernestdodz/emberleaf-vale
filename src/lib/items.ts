@@ -1,7 +1,7 @@
 import { MANSION, ROCKS, TREES, groundHeight, mansionWorld } from './world'
 import { mulberry32 } from './math'
 
-export type Item = 'rock' | 'flower' | 'wood' | 'fish' | 'food'
+export type Item = 'rock' | 'flower' | 'wood' | 'fish' | 'food' | 'gel'
 export type PickupType = Item
 
 export type Pickup = {
@@ -18,14 +18,15 @@ export type Pickup = {
 }
 
 export const pickups: Pickup[] = []
-export const inv: Record<Item, number> = { rock: 0, flower: 0, wood: 0, fish: 0, food: 0 }
-export const SLOT_TYPES: Item[] = ['rock', 'flower', 'wood', 'fish', 'food']
+export const inv: Record<Item, number> = { rock: 0, flower: 0, wood: 0, fish: 0, food: 0, gel: 0 }
+export const SLOT_TYPES: Item[] = ['rock', 'flower', 'wood', 'fish', 'food', 'gel']
 export const SLOT_LABELS: Record<Item, string> = {
   rock: 'Rock',
   flower: 'Flower',
   wood: 'Wood',
   fish: 'Fish',
   food: 'Food',
+  gel: 'Gel',
 }
 export const selected = { slot: 0 }
 

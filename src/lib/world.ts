@@ -95,7 +95,7 @@ export function pathDistance(x: number, z: number) {
 function moundHeight(x: number, z: number) {
   const dx = x - WINDMILL.x
   const dz = z - WINDMILL.z
-  return 4.6 * Math.exp(-(dx * dx + dz * dz) / (2 * 10 * 10))
+  return 5.4 * Math.exp(-(dx * dx + dz * dz) / (2 * 12 * 12))
 }
 
 function terrainRaw(x: number, z: number) {
@@ -110,7 +110,8 @@ export const WINDMILL_Y = terrainRaw(WINDMILL.x, WINDMILL.z)
 type Feature = { x: number; z: number; r: number; f: number; target: number }
 
 export const MANSION = { x: -21.5, z: -16, w: 15, d: 12, yaw: 0.82, floorY: 0.25, floor2: 3.3 }
-export const MANSION_STAIR = { lx0: 5.5, lx1: 7.5, lz0: -1.9, lz1: 5.2 }
+export const MANSION_STAIR = { lx0: -5.2, lx1: 1.8, lz0: -6, lz1: -4.1, stepRise: 0.19, steps: 16 }
+export const MANSION_SLAB_LZ = -1.9
 const wc = Math.cos(MANSION.yaw)
 const ws = Math.sin(MANSION.yaw)
 
@@ -128,7 +129,7 @@ const FEATURES: Feature[] = [
   { x: HOUSE.x, z: HOUSE.z, r: 8.5, f: 5, target: 0 },
   { x: PLAZA.x, z: PLAZA.z, r: 6.5, f: 4, target: 0 },
   { x: WELL.x, z: WELL.z, r: 2.6, f: 2, target: 0 },
-  { x: WINDMILL.x, z: WINDMILL.z, r: 9, f: 5.5, target: WINDMILL_Y },
+  { x: WINDMILL.x, z: WINDMILL.z, r: 11.5, f: 6.5, target: WINDMILL_Y },
   { x: MANSION.x, z: MANSION.z, r: 11, f: 5, target: 0 },
 ]
 
@@ -163,7 +164,7 @@ export const TREES: Tree[] = []
     if (Math.hypot(x - MANSION.x, z - MANSION.z) < 14) continue
     if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < 9.5) continue
     if (Math.hypot(x - POND.x, z - POND.z) < 10) continue
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 12) continue
+    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 14) continue
     if (Math.hypot(x - WELL.x, z - WELL.z) < 4) continue
     if (Math.hypot(x - SPAWN.x, z - SPAWN.z) < 6) continue
     if (TREES.some((t) => Math.hypot(t.x - x, t.z - z) < 6.5)) continue
@@ -198,7 +199,7 @@ export const ROCKS: Rock[] = []
     if (Math.hypot(x - MANSION.x, z - MANSION.z) < 12.5) continue
     if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < 7.5) continue
     if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 2.5) continue
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 10) continue
+    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 12) continue
     if (Math.hypot(x - WELL.x, z - WELL.z) < 2.5) continue
     if (TREES.some((t) => Math.hypot(t.x - x, t.z - z) < 2.5)) continue
     if (ROCKS.some((k) => Math.hypot(k.x - x, k.z - z) < 3)) continue
@@ -212,6 +213,7 @@ export type Collider =
   | { t: 'b'; x: number; z: number; hw: number; hd: number; yaw: number; top?: number; y0?: number }
 
 export const COLLIDERS: Collider[] = []
+export const TREE_COLLIDERS: Extract<Collider, { t: 'c' }>[] = []
 
 function addBox(lx: number, lz: number, hw: number, hd: number, top?: number) {
   const w = houseWorld(lx, lz)
@@ -262,7 +264,11 @@ function addBox(lx: number, lz: number, hw: number, hd: number, top?: number) {
   }
   COLLIDERS.push({ t: 'c', x: WELL.x - 0.75, z: WELL.z, r: 0.18 })
   COLLIDERS.push({ t: 'c', x: WELL.x + 0.75, z: WELL.z, r: 0.18 })
-  for (const t of TREES) COLLIDERS.push({ t: 'c', x: t.x, z: t.z, r: 0.5 * t.s })
+  for (const t of TREES) {
+    const c: Collider = { t: 'c', x: t.x, z: t.z, r: 0.5 * t.s }
+    TREE_COLLIDERS.push(c)
+    COLLIDERS.push(c)
+  }
   for (const k of ROCKS) {
     COLLIDERS.push({ t: 'c', x: k.x, z: k.z, r: 0.85 * k.s, top: k.y + k.s * k.sq * 0.6 })
   }
@@ -273,14 +279,18 @@ export const MILL = {
   z: WINDMILL.z,
   yaw: -0.6435,
   base: WINDMILL_Y,
-  top: 5.2,
-  rWall: 4.1,
-  rIn: 3.6,
-  rCenter: 0.55,
+  top: 6.4,
+  rWall: 5.2,
+  rIn: 4.55,
+  rCenter: 0.7,
   doorPhi: 0.45,
-  topPhi: 0.45,
+  topPhi: 0.35,
 }
 export const MILL_ARC = Math.PI * 2 - 2 * MILL.doorPhi - MILL.topPhi
+export const MILL_TOWER = { h: 14.5, hubY: 12.2, sailR: 6.2 }
+export const MILL_WALL_HW = 0.6
+export const MILL_DOOR_CLEAR = 0.2
+export const PLAYER = { r: 0.32, h: 1.55, step: 0.55, jumpApex: 0.845 }
 const mc = Math.cos(MILL.yaw)
 const ms = Math.sin(MILL.yaw)
 
@@ -299,7 +309,7 @@ const WALKABLES: Walkable[] = [
   { x: FOUNTAIN.x, z: FOUNTAIN.z, r: 1.7, h: 0.48 },
   { x: FOUNTAIN.x, z: FOUNTAIN.z, inner: 1.7, r: 2.0, h: 0.56 },
   { x: WELL.x, z: WELL.z, inner: 0.7, r: 1.1, h: 0.78 },
-  { x: millWorld(0, 0).x, z: millWorld(0, 0).z, r: 0.78, h: MILL.base + 0.5 },
+  { x: millWorld(0, 0).x, z: millWorld(0, 0).z, r: 0.95, h: MILL.base + 0.5 },
 ]
 for (const k of ROCKS) {
   WALKABLES.push({ x: k.x, z: k.z, r: k.s * 0.72, h: k.y + k.s * k.sq * 0.6 })
@@ -327,9 +337,9 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
   if (Math.abs(mn.lx) < MANSION.w / 2 && Math.abs(mn.lz) < MANSION.d / 2) {
     const st = MANSION_STAIR
     if (mn.lx > st.lx0 && mn.lx < st.lx1 && mn.lz > st.lz0 && mn.lz < st.lz1) {
-      const t = clamp((st.lz1 - mn.lz) / (st.lz1 - st.lz0), 0, 1)
+      const t = clamp((mn.lx - st.lx0) / (st.lx1 - st.lx0), 0, 1)
       h = Math.max(h, MANSION.floorY + t * (MANSION.floor2 - MANSION.floorY))
-    } else if (mn.lz < st.lz0) {
+    } else if (mn.lz < MANSION_SLAB_LZ) {
       h = Math.max(h, curY > MANSION.floor2 - 0.6 ? MANSION.floor2 : MANSION.floorY)
     } else {
       h = Math.max(h, MANSION.floorY)
@@ -361,14 +371,14 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
   addMBox(0, -md, 0.95, 0.12, undefined, F2 + 2.3)
   addMBox(-mw, 0, 0.12, md)
   addMBox(mw, 0, 0.12, md)
-  addMBox(st.lx0 - 0.075, (st.lz0 + st.lz1) / 2, 0.075, (st.lz1 - st.lz0) / 2, F2 + 1.0, f1)
-  addMBox(-1.075, st.lz0, 6.425, 0.08, F2 + 1.0, F2)
-  addMBox(0, -7.45, 2.6, 0.08, F2 + 1.0, F2)
-  addMBox(2.55, -6.75, 0.08, 0.75, F2 + 1.0, F2)
-  addMBox(-2.55, -6.75, 0.08, 0.75, F2 + 1.0, F2)
+  addMBox((st.lx0 + st.lx1) / 2, st.lz1, (st.lx1 - st.lx0) / 2, 0.08, F2 + 1.0, f1)
+  addMBox(0, MANSION_SLAB_LZ, mw, 0.08, F2 + 1.0, F2)
+  addMBox(4.6, -7.45, 1.7, 0.08, F2 + 1.0, F2)
+  addMBox(6.25, -6.75, 0.08, 0.75, F2 + 1.0, F2)
+  addMBox(2.95, -6.75, 0.08, 0.75, F2 + 1.0, F2)
   for (const [px, pz] of [
-    [2.4, -7.3],
-    [-2.4, -7.3],
+    [6.1, -7.3],
+    [3.1, -7.3],
   ]) {
     const s = mansionWorld(px, pz)
     COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.12, top: F2 + 1.0 })
@@ -395,16 +405,17 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
     const s = mansionWorld(px, pz)
     COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.4, top: f1 + 0.6 })
   }
-  addMBox(-4.8, -4.4, 1.3, 1.8, F2 + 0.65, F2)
-  addMBox(2.9, -4.7, 0.95, 0.45, F2 + 0.8, F2)
+  addMBox(3.5, -3.0, 0.8, 1.05, F2 + 0.65, F2)
+  addMBox(5.9, -5.3, 0.95, 0.45, F2 + 0.8, F2)
   {
-    const s = mansionWorld(2.9, -3.6)
+    const s = mansionWorld(5.9, -4.55)
     COLLIDERS.push({ t: 'c', x: s.x, z: s.z, r: 0.3, top: F2 + 0.5 })
   }
+  addMBox(-7.15, -2.95, 0.35, 0.9, F2 + 1.9, F2)
 }
 
 const bedW = houseWorld(-2.4, -1.5)
-const bed2W = mansionWorld(-4.8, -4.4)
+const bed2W = mansionWorld(3.5, -3.0)
 const bookW = houseWorld(1.9, 0.8)
 const stool1W = houseWorld(2.6, 0.2)
 const stool2W = houseWorld(2.5, 1.4)
@@ -412,11 +423,11 @@ const mstool1W = mansionWorld(1.9, 0.95)
 const mstool2W = mansionWorld(1.9, 2.05)
 const mstool3W = mansionWorld(-1.9, 0.95)
 const mstool4W = mansionWorld(-1.9, 2.05)
-const mchairW = mansionWorld(2.9, -3.6)
+const mchairW = mansionWorld(5.9, -4.55)
 export const INTERACTABLES = [
   { id: 'bed', x: bedW.x, z: bedW.z, label: 'Sleep in the bed', r: 1.35 },
   { id: 'book', x: bookW.x, z: bookW.z, label: 'Read the book', r: 1.4 },
-  { id: 'bed2', x: bed2W.x, z: bed2W.z, label: 'Sleep in the grand bed', r: 1.8 },
+  { id: 'bed2', x: bed2W.x, z: bed2W.z, label: 'Sleep in the grand bed', r: 1.35 },
 ]
 export const SEATS = [
   { x: stool1W.x, z: stool1W.z, y: 0.61 },
@@ -429,19 +440,24 @@ export const SEATS = [
 ]
 
 {
-  const hw = 0.5
+  const hw = MILL_WALL_HW
   const halfA = Math.atan2(hw, MILL.rWall)
-  const clear = 0.195
-  for (let a = clear + halfA; a <= Math.PI * 2 - clear - halfA + 1e-9; a += 2 * halfA) {
+  const first = MILL_DOOR_CLEAR + halfA
+  const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
+  const count = Math.max(1, Math.ceil((last - first) / (2 * halfA)))
+  const step = count > 1 ? (last - first) / (count - 1) : 0
+  for (let i = 0; i < count; i++) {
+    const a = first + i * step
     const p = millWorld(Math.sin(a) * MILL.rWall, Math.cos(a) * MILL.rWall)
-    COLLIDERS.push({ t: 'b', x: p.x, z: p.z, hw, hd: 0.16, yaw: a })
+    COLLIDERS.push({ t: 'b', x: p.x, z: p.z, hw, hd: 0.18, yaw: a })
   }
   const pole = millWorld(0, 0)
-  COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.3 })
+  COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.35 })
 }
 
 export const game = {
   ready: false,
+  paused: false,
   time: 0,
   x: SPAWN.x,
   y: terrainHeight(SPAWN.x, SPAWN.z),
@@ -481,6 +497,8 @@ export const game = {
   windmill: 0,
   attack: 0,
   showColliders: false,
+  menu: false,
+  questVer: 0,
   fps: 60,
   grass: 0,
   drawCalls: 0,

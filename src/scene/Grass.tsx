@@ -129,9 +129,9 @@ export function Grass() {
       const hl = houseLocal(x, z)
       if (Math.abs(hl.lx) < 4.4 && Math.abs(hl.lz) < 3.9) continue
       if (Math.hypot(x - POND.x, z - POND.z) < 6.6) continue
-      if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 7.5) continue
+      if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 9.5) continue
       const mnl = mansionLocal(x, z)
-      if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 6.9) continue
+      if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 8.0) continue
       if (Math.hypot(x - WELL.x, z - WELL.z) < 1.6) continue
       let near = false
       for (const t of TREES) {

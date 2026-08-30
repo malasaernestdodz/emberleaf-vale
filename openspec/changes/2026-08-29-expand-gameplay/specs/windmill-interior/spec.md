@@ -36,3 +36,9 @@ vertical discontinuity above step height anywhere, and 18 visible sector steps.
 The tower center (r < 1.5) SHALL remain open at every level: the base floor and
 millstone below, the spiral above, so falling from the balcony lands physically on
 the base floor.
+
+#### Scenario: Base floor stays walkable under the spiral start
+
+- **WHEN** the player walks straight in from the door toward the center
+- **THEN** they cross the full wedge on the base floor (lift < 0.8) and reach the
+  millstone beside the pole with no invisible wall

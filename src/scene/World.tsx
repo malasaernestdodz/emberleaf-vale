@@ -10,6 +10,7 @@ import { Windmill } from './Windmill'
 import { Fountain } from './Fountain'
 import { Well } from './Well'
 import { FishingFx } from './FishingFx'
+import { Slime } from './Slime'
 import { Air, Butterflies } from './Air'
 import { Pickups } from './Pickups'
 import { Player } from './Player'
@@ -36,6 +37,7 @@ export function World() {
       <Air />
       <Butterflies />
       <FishingFx />
+      <Slime />
       <Pickups />
       <Player />
       <Colliders />

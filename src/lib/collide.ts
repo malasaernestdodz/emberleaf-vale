@@ -1,6 +1,20 @@
-import { COLLIDERS } from './world'
+import { COLLIDERS, type Collider } from './world'
 
-const PLAYER_H = 1.55
+export const PLAYER_H = 1.55
+
+export function colliderBlocks(c: Collider, feetY: number): boolean {
+  const y0 = c.y0 ?? 0
+  const top = c.top ?? Infinity
+  return feetY <= top - 0.05 && feetY + PLAYER_H >= y0 + 0.05
+}
+
+export function colliderDims(c: Collider): string {
+  const y0 = c.y0 ?? 0
+  const top = c.top
+  const h = top === undefined ? '∞' : (top - y0).toFixed(2)
+  if (c.t === 'c') return `CYL r${c.r.toFixed(2)} h${h}`
+  return `BOX ${(c.hw * 2).toFixed(2)}×${(c.hd * 2).toFixed(2)} h${h}`
+}
 
 export function resolveCollisions(px: number, pz: number, r: number, feetY: number): [number, number] {
   let x = px
