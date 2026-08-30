@@ -38,6 +38,64 @@ const STEPS = 34
 const STEP_R = (MILL.rCenter + MILL.rIn) / 2
 const STEP_W = MILL.rIn - MILL.rCenter + 0.1
 
+function buildRampShell() {
+  const r0 = MILL.rCenter - 0.05
+  const r1 = MILL.rIn + 0.05
+  const N = 72
+  const depth = 0.45
+  const phi0 = MILL.doorPhi
+  const phi1 = phi0 + MILL_ARC
+  const yAt = (phi: number) => MILL.floorH + ((phi - phi0) / MILL_ARC) * (MILL.top - MILL.floorH)
+  const px = (r: number, phi: number) => -Math.sin(phi) * r
+  const pz = (r: number, phi: number) => Math.cos(phi) * r
+  const pos: number[] = []
+  const quad = (
+    a: [number, number, number],
+    b: [number, number, number],
+    c: [number, number, number],
+    d: [number, number, number]
+  ) => {
+    pos.push(...a, ...b, ...c, ...a, ...c, ...d)
+  }
+  for (let k = 0; k < N; k++) {
+    const fa = phi0 + (k / N) * MILL_ARC
+    const fb = phi0 + ((k + 1) / N) * MILL_ARC
+    const ya = yAt(fa)
+    const yb = yAt(fb)
+    const iA: [number, number, number] = [px(r0, fa), ya, pz(r0, fa)]
+    const iB: [number, number, number] = [px(r0, fb), yb, pz(r0, fb)]
+    const oA: [number, number, number] = [px(r1, fa), ya, pz(r1, fa)]
+    const oB: [number, number, number] = [px(r1, fb), yb, pz(r1, fb)]
+    const iAd: [number, number, number] = [iA[0], ya - depth, iA[2]]
+    const iBd: [number, number, number] = [iB[0], yb - depth, iB[2]]
+    const oAd: [number, number, number] = [oA[0], ya - depth, oA[2]]
+    const oBd: [number, number, number] = [oB[0], yb - depth, oB[2]]
+    quad(iA, iB, oB, oA)
+    quad(iAd, oAd, oBd, iBd)
+    quad(oA, oB, oBd, oAd)
+    quad(iA, iAd, iBd, iB)
+  }
+  const yS = yAt(phi0)
+  const yE = yAt(phi1)
+  quad(
+    [px(r0, phi0), yS, pz(r0, phi0)],
+    [px(r1, phi0), yS, pz(r1, phi0)],
+    [px(r1, phi0), yS - depth, pz(r1, phi0)],
+    [px(r0, phi0), yS - depth, pz(r0, phi0)]
+  )
+  quad(
+    [px(r0, phi1), yE, pz(r0, phi1)],
+    [px(r0, phi1), yE - depth, pz(r0, phi1)],
+    [px(r1, phi1), yE - depth, pz(r1, phi1)],
+    [px(r1, phi1), yE, pz(r1, phi1)]
+  )
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((pos.length / 3) * 2), 2))
+  g.computeVertexNormals()
+  return g
+}
+
 export function Windmill() {
   const sails = useRef<THREE.Group>(null!)
   const sailsGeo = useMemo(buildSails, [])
@@ -120,7 +178,11 @@ export function Windmill() {
       brace.translate(-Math.sin(phi) * 6.0, MILL.top - 0.72, Math.cos(phi) * 6.0)
       parts.push(brace)
     }
-    return mergeGeometries(parts, false)!
+    parts.push(buildRampShell())
+    return mergeGeometries(
+      parts.map((p) => (p.index ? p.toNonIndexed() : p)),
+      false
+    )!
   }, [])
   const landingGeo = useMemo(() => {
     const thetaStart = MILL.doorPhi - Math.PI / 2
@@ -137,6 +199,12 @@ export function Windmill() {
   const doorHalf = MILL.doorHalf
   const doorPostX = Math.sin(doorHalf) * (MILL.rWall + 0.12)
   const doorPostZ = Math.cos(doorHalf) * (MILL.rWall + 0.12)
+  const doorHingeR = MILL.rWall - 0.02
+  const doorHingeX = Math.sin(doorHalf) * doorHingeR
+  const doorHingeZ = Math.cos(doorHalf) * doorHingeR
+  const doorLeafW = 2 * doorPostX - 0.22
+  const doorLeafH = LINTEL_TOP - 0.24 - MILL.floorH
+  const doorOpen = 0.57
   // Cylinder theta runs opposite to the walkable phi convention (theta = -phi),
   // so the balcony arc [phi0, phi1] opens the upper band at cylinder thetas
   // [2π − phi0, 2π − phi0 + phi0 + doorHalf]; the length wraps past 2π so the
@@ -163,14 +231,14 @@ export function Windmill() {
       </mesh>
       <mesh castShadow position={[0, MILL.floorH + 0.03, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[4.6, 40]} />
-        <meshToonMaterial color="#7a5b3a" gradientMap={ramp} />
+        <meshToonMaterial color="#7a5b3a" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
       <mesh castShadow position={[0, MILL.step1Top / 2, 6.025]}>
-        <boxGeometry args={[2.7, MILL.step1Top, 0.65]} />
+        <boxGeometry args={[2 * MILL.doorStepW, MILL.step1Top, 0.65]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} />
       </mesh>
       <mesh castShadow position={[0, MILL.step2Top / 2, 6.675]}>
-        <boxGeometry args={[2.7, MILL.step2Top, 0.65]} />
+        <boxGeometry args={[2 * MILL.doorStepW, MILL.step2Top, 0.65]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} />
       </mesh>
       <mesh castShadow position={[0, 7.35, 0]}>
@@ -183,22 +251,24 @@ export function Windmill() {
       <mesh geometry={landingGeo} receiveShadow>
         <meshToonMaterial color="#8f6c48" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
-      <mesh castShadow position={[doorPostX, 1.8, doorPostZ]}>
-        <boxGeometry args={[0.22, 3.6, 0.22]} />
+      <mesh castShadow position={[doorPostX, LINTEL_TOP / 2, doorPostZ]}>
+        <boxGeometry args={[0.26, LINTEL_TOP, 0.26]} />
         <meshToonMaterial color="#4a3a2c" gradientMap={ramp} />
       </mesh>
-      <mesh castShadow position={[-doorPostX, 1.8, doorPostZ]}>
-        <boxGeometry args={[0.22, 3.6, 0.22]} />
+      <mesh castShadow position={[-doorPostX, LINTEL_TOP / 2, doorPostZ]}>
+        <boxGeometry args={[0.26, LINTEL_TOP, 0.26]} />
         <meshToonMaterial color="#4a3a2c" gradientMap={ramp} />
       </mesh>
-      <mesh castShadow position={[0, 3.75, doorPostZ + 0.06]}>
-        <boxGeometry args={[2.6, 0.24, 0.24]} />
+      <mesh castShadow position={[0, LINTEL_TOP - 0.12, doorPostZ]}>
+        <boxGeometry args={[2 * doorPostX + 0.26, 0.24, 0.3]} />
         <meshToonMaterial color="#4a3a2c" gradientMap={ramp} />
       </mesh>
-      <mesh castShadow position={[doorPostX + 0.86, 1.7, doorPostZ + 0.4]} rotation-y={-1.15}>
-        <boxGeometry args={[1.7, 3.3, 0.1]} />
-        <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
-      </mesh>
+      <group position={[doorHingeX, 0, doorHingeZ]} rotation-y={doorOpen}>
+        <mesh castShadow position={[doorLeafW / 2, MILL.floorH + doorLeafH / 2, 0]}>
+          <boxGeometry args={[doorLeafW, doorLeafH, 0.12]} />
+          <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
+        </mesh>
+      </group>
       {[2.1, 3.6, 5.2].map((a) => (
         <group key={a} position={[Math.sin(a) * (WALL_TOP_R + 0.06), 11.5, Math.cos(a) * (WALL_TOP_R + 0.06)]} rotation-y={a}>
           <mesh>
@@ -213,7 +283,7 @@ export function Windmill() {
       ))}
       <mesh castShadow position={[0, 0.6 + WALL_H + 1.6, 0]}>
         <coneGeometry args={[5.15, 3.2, 26]} />
-        <meshToonMaterial color="#b5432e" gradientMap={ramp} />
+        <meshToonMaterial color="#b5432e" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
       <mesh castShadow position={[0, HUB_Y, -5.0]} rotation-x={Math.PI / 2}>
         <cylinderGeometry args={[0.2, 0.26, 1.4, 10]} />

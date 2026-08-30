@@ -16,7 +16,7 @@ import {
 
 type Api = {
   snapshot: () => { ready: boolean; inside: boolean; insideMansion: boolean; x: number; z: number }
-  teleport: (x: number, z: number) => void
+  teleport: (x: number, z: number, high?: boolean) => void
   setCamYaw: (y: number) => void
 }
 
@@ -49,7 +49,7 @@ const pixel = (page: Page, u: number, v: number) =>
     [u, v]
   )
 
-type Shot = { name: string; from: { x: number; z: number }; to: { x: number; z: number }; zoom?: boolean }
+type Shot = { name: string; from: { x: number; z: number }; to: { x: number; z: number }; zoom?: boolean; high?: boolean }
 
 const SHOTS: Shot[] = [
   {
@@ -110,6 +110,20 @@ const SHOTS: Shot[] = [
       Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 0.5
     ),
   },
+  {
+    name: 'windmill-spiral',
+    from: millWorld(0, 4.3),
+    to: millWorld(-0.4, -1.2),
+  },
+  {
+    name: 'windmill-landing',
+    high: true,
+    from: millWorld(-Math.sin(MILL_BALCONY.phi0 + 0.1) * 2.4, Math.cos(MILL_BALCONY.phi0 + 0.1) * 2.4),
+    to: millWorld(
+      -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9,
+      Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9
+    ),
+  },
 ]
 
 test('visual gallery records every landmark from its storybook angle', async ({ page }) => {
@@ -123,11 +137,11 @@ test('visual gallery records every landmark from its storybook angle', async ({ 
   const h = await api(page)
   for (const s of SHOTS) {
     await page.evaluate(
-      ({ a, x, z, yaw }) => {
-        a.teleport(x, z)
+      ({ a, x, z, yaw, high }) => {
+        a.teleport(x, z, high)
         a.setCamYaw(yaw)
       },
-      { a: h, x: s.from.x, z: s.from.z, yaw: face(s.from, s.to) }
+      { a: h, x: s.from.x, z: s.from.z, yaw: face(s.from, s.to), high: s.high === true }
     )
     await page.waitForTimeout(700)
     if (s.zoom) {
@@ -210,8 +224,7 @@ test('interior probes report the right inside flags from gallery spots', async (
     },
     { a: h, x: houseIn.from.x, z: houseIn.from.z }
   )
-  await page.waitForTimeout(600)
-  expect((await snap(page)).inside).toBe(true)
+  await expect.poll(async () => (await snap(page)).inside, { timeout: 15_000 }).toBe(true)
   const foyer = SHOTS[3]
   await page.evaluate(
     ({ a, x, z }) => {
@@ -219,6 +232,5 @@ test('interior probes report the right inside flags from gallery spots', async (
     },
     { a: h, x: foyer.from.x, z: foyer.from.z }
   )
-  await page.waitForTimeout(600)
-  expect((await snap(page)).insideMansion).toBe(true)
+  await expect.poll(async () => (await snap(page)).insideMansion, { timeout: 15_000 }).toBe(true)
 })

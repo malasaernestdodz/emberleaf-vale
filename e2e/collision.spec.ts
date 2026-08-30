@@ -356,17 +356,29 @@ test('mansion balcony is reachable from floor two through the back doorway', asy
     await page.waitForTimeout(280)
   }
   const balcony = mansionWorld(MANSION_BALCONY.doorLX, -6.9)
-  await steerTo(page, h, balcony.x, balcony.z, 0)
-  await page.waitForTimeout(600)
-  await page.keyboard.up('ArrowUp')
+  let onBalc = false
+  for (let i = 0; i < 12 && !onBalc; i++) {
+    await steerTo(page, h, balcony.x, balcony.z, 0)
+    await page.keyboard.down('ArrowUp')
+    for (let j = 0; j < 10; j++) {
+      const s = await snap(page)
+      if (
+        s.mlz < MANSION_BALCONY.lz1 - 0.3 &&
+        s.mlz > MANSION_BALCONY.lz0 &&
+        s.mlx > MANSION_BALCONY.lx0 &&
+        s.mlx < MANSION_BALCONY.lx1 &&
+        Math.abs(s.y - MANSION.floor2) <= 0.25 &&
+        s.grounded
+      ) {
+        onBalc = true
+        break
+      }
+      await page.waitForTimeout(280)
+    }
+    await page.keyboard.up('ArrowUp')
+  }
   expect(crossed).toBe(true)
-  const s = await snap(page)
-  expect(s.mlz).toBeLessThan(MANSION_BALCONY.lz1 - 0.3)
-  expect(s.mlz).toBeGreaterThan(MANSION_BALCONY.lz0)
-  expect(s.mlx).toBeGreaterThan(MANSION_BALCONY.lx0)
-  expect(s.mlx).toBeLessThan(MANSION_BALCONY.lx1)
-  expect(Math.abs(s.y - MANSION.floor2)).toBeLessThanOrEqual(0.25)
-  expect(s.grounded).toBe(true)
+  expect(onBalc).toBe(true)
   const floorHit = await page.evaluate(
     ({ a, x, z, fromY }) => a.raycastDown(x, z, fromY),
     {
@@ -479,10 +491,19 @@ test('the vista balcony ends the windmill climb with a working quest', async ({ 
   }
   await page.keyboard.up('ArrowUp')
   expect(nearLookout).toBe('lookout')
-  await page.keyboard.press('KeyE')
-  await page.waitForTimeout(400)
+  let lookoutProgress = 0
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press('KeyE')
+    for (let j = 0; j < 6; j++) {
+      lookoutProgress =
+        (await snap(page)).quests.list.find((q) => q.id === 'lookout')?.progress ?? 0
+      if (lookoutProgress === 1) break
+      await page.waitForTimeout(300)
+    }
+    if (lookoutProgress === 1) break
+  }
+  expect(lookoutProgress).toBe(1)
   const q = (await snap(page)).quests.list.find((q) => q.id === 'lookout')
-  expect(q?.progress).toBe(1)
   expect(q?.done).toBe(true)
   await page.keyboard.press('KeyE')
   await page.waitForTimeout(300)

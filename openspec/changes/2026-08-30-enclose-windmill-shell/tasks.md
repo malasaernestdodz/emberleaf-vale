@@ -2,10 +2,10 @@
 
 ## 0. Grilling
 
-- [ ] 0.1 `grilling.md` — 8 questions asked and answered against the root
+- [x] 0.1 `grilling.md` — 8 questions asked and answered against the root
       context (scope fidelity, conventions, cheat paths, seams, perf,
       determinism, existing paths, e2e contract)
-- [ ] 0.2 Answers folded into proposal/spec deltas — nothing silently cut
+- [x] 0.2 Answers folded into proposal/spec deltas — nothing silently cut
 
 ## 1. Wall bands
 
@@ -13,12 +13,12 @@
       tapered bands (lower: full circle minus door slit, `[0.6, 3.87]`; mid:
       full circle, `[3.87, MILL.top]`; upper: full circle minus balcony arc,
       `[MILL.top, 0.6 + WALL_H]`), same material, per-band interpolated radii
-- [ ] 1.2 `scene/Windmill.tsx` — continuous spiral under-surface (helical
+- [x] 1.2 `scene/Windmill.tsx` — continuous spiral under-surface (helical
       ribbon/skirt beneath the 34 step boxes, spanning `rampR0..rIn`) so the
       climb shows no gaps (defect: "no floor on the staircase")
-- [ ] 1.3 `scene/Windmill.tsx` — roof cone and ground-floor disc visible from
+- [x] 1.3 `scene/Windmill.tsx` — roof cone and ground-floor disc visible from
       both sides (no sky from inside the tower; floor visible from below)
-- [ ] 1.4 `scene/Windmill.tsx` — ground door frame (posts, jambs, leaf)
+- [x] 1.4 `scene/Windmill.tsx` — ground door frame (posts, jambs, leaf)
       derived from `MILL.doorStepW`/`MILL.doorHalf`, frame fills the wall
       slit, leaf hinges at one post (defect: "no proper door")
 
@@ -35,7 +35,7 @@
       stopped outside `MILL.rWall`
 - [x] 3.2 `e2e/gallery.spec.ts` — windmill shell pose (porch view of the
       enclosed wall with the balcony above) recorded in test-results/gallery
-- [ ] 3.3 `e2e/gallery.spec.ts` — tower-interior pose (spiral under-surface
+- [x] 3.3 `e2e/gallery.spec.ts` — tower-interior pose (spiral under-surface
       and roof visible, no sky) and doorway front pose (frame fills the slit)
       recorded and reviewed
 
@@ -44,4 +44,4 @@
 - [x] 4.1 `npm run spec:validate` clean
 - [x] 4.2 `npm run build` (tsc strict + vite) clean
 - [x] 4.3 `npm run lint:sg` clean
-- [ ] 4.4 Full Playwright suite green; shell screenshot reviewed
+- [x] 4.4 Full Playwright suite green; shell screenshot reviewed

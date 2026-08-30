@@ -23,16 +23,16 @@
 
 ## 3. Acceptance tests (agent must run all green)
 
-- [ ] 3.1 `e2e/collision.spec.ts` — climb → step out onto the balcony → walk to
+- [x] 3.1 `e2e/collision.spec.ts` — climb → step out onto the balcony → walk to
       the telescope → E → quest `lookout` progress 1/1; rail stops the player
       at the outer edge (grounded, inside r1)
-- [ ] 3.2 `e2e/math.spec.ts` — balcony deck height matches `MILL.base + MILL.top`
+- [x] 3.2 `e2e/math.spec.ts` — balcony deck height matches `MILL.base + MILL.top`
       across the arc; outside the arc no lift; underneath (low curY) no lift
-- [ ] 3.3 `e2e/gallery.spec.ts` — windmill shot from the balcony side
+- [x] 3.3 `e2e/gallery.spec.ts` — windmill shot from the balcony side
 
 ## 4. Validation
 
-- [ ] 4.1 `npm run spec:validate` clean
-- [ ] 4.2 `npm run build` (tsc strict + vite) clean
-- [ ] 4.3 Playwright math + collision + gallery green; screenshots reviewed
+- [x] 4.1 `npm run spec:validate` clean
+- [x] 4.2 `npm run build` (tsc strict + vite) clean
+- [x] 4.3 Playwright math + collision + gallery green; screenshots reviewed
       (house free of terrain, balcony door visible, deck reachable)

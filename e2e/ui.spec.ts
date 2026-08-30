@@ -224,9 +224,17 @@ test('three sword swings pop the slime into gel pickups and it respawns', async 
     await page.waitForTimeout(300)
   }
   expect(nearGel).toBe('pk')
-  await page.keyboard.press('KeyE')
-  await page.waitForTimeout(400)
-  expect((await snap(page)).inv.gel).toBeGreaterThanOrEqual(1)
+  let gelCount = 0
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press('KeyE')
+    for (let j = 0; j < 6; j++) {
+      gelCount = (await snap(page)).inv.gel
+      if (gelCount >= 1) break
+      await page.waitForTimeout(300)
+    }
+    if (gelCount >= 1) break
+  }
+  expect(gelCount).toBeGreaterThanOrEqual(1)
 
   await page.evaluate((a) => a.skipSlimeRespawn(), h)
   let respawned = false

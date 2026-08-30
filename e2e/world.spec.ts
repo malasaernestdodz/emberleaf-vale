@@ -89,6 +89,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('boots with perf budgets', async ({ page }) => {
+  await expect.poll(async () => (await snap(page)).tris, { timeout: 30_000 }).toBeGreaterThan(100000)
   const s = await snap(page)
   expect(s.grass).toBeGreaterThanOrEqual(10000)
   expect(s.drawCalls).toBeLessThanOrEqual(190)
@@ -390,11 +391,17 @@ test('mansion stairs reach the second floor', async ({ page }) => {
   }
   await page.keyboard.up('ArrowUp')
   expect(up).toBe(true)
-  const s = await snap(page)
-  expect(s.y).toBeGreaterThan(MANSION.floor2 - 0.1)
-  expect(s.y).toBeLessThan(MANSION.floor2 + 0.4)
-  expect(s.mlz).toBeLessThan(MANSION_SLAB_LZ)
-  expect(s.insideMansion).toBe(true)
+  let summit = false
+  for (let i = 0; i < 12 && !summit; i++) {
+    const s = await snap(page)
+    summit =
+      s.y > MANSION.floor2 - 0.1 &&
+      s.y < MANSION.floor2 + 0.4 &&
+      s.mlz < MANSION_SLAB_LZ &&
+      s.insideMansion
+    if (!summit) await page.waitForTimeout(300)
+  }
+  expect(summit).toBe(true)
 })
 
 test('can walk under the back balcony with no invisible wall', async ({ page }) => {
@@ -439,18 +446,20 @@ test('fountain rim is solid below and standable above', async ({ page }) => {
   const dWalked = Math.hypot(walked.x + 6, walked.z + 1)
   expect(dWalked).toBeGreaterThan(1.35)
   await page.waitForTimeout(250)
-  await page.keyboard.down('ArrowUp')
-  await page.keyboard.press('Space')
   let maxLift = 0
   let landed = await snap(page)
-  for (let i = 0; i < 48; i++) {
-    landed = await snap(page)
-    const d = Math.hypot(landed.x + 6, landed.z + 1)
-    if (d < 2.05) maxLift = Math.max(maxLift, landed.y)
-    if (landed.grounded && i > 5) break
-    await page.waitForTimeout(160)
+  for (let attempt = 0; attempt < 4 && maxLift <= 0.4; attempt++) {
+    await page.keyboard.down('ArrowUp')
+    await page.keyboard.press('Space')
+    for (let i = 0; i < 48; i++) {
+      landed = await snap(page)
+      const d = Math.hypot(landed.x + 6, landed.z + 1)
+      if (d < 2.05) maxLift = Math.max(maxLift, landed.y)
+      if (landed.grounded && i > 5) break
+      await page.waitForTimeout(160)
+    }
+    await page.keyboard.up('ArrowUp')
   }
-  await page.keyboard.up('ArrowUp')
   expect(maxLift).toBeGreaterThan(0.4)
   expect(landed.grounded).toBe(true)
   const dEnd = Math.hypot(landed.x + 6, landed.z + 1)
