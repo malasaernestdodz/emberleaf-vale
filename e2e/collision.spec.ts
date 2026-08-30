@@ -6,6 +6,7 @@ import {
   MANSION_STAIR,
   MANSION_STAIRWELL,
   MILL,
+  MILL_BALCONY,
   houseRoofY,
   houseWorld,
   mansionWorld,
@@ -28,6 +29,8 @@ type Snap = {
   mode: string
   drawCalls: number
   fps: number
+  near: string
+  quests: { ver: number; done: number; list: { id: string; progress: number; target: number; done: boolean }[] }
 }
 
 type Api = {
@@ -162,7 +165,7 @@ test('windmill spiral climbs with held keys and steps match the mesh', async ({ 
   for (const phi of [Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
     const p = millWorld(-Math.sin(phi) * 2.625, Math.cos(phi) * 2.625)
     await page.evaluate(
-      ({ a, x, z }) => a.teleport(x, z),
+      ({ a, x, z }) => a.teleport(x, z, true),
       { a: h, x: p.x, z: p.z }
     )
     let settled = false
@@ -178,7 +181,6 @@ test('windmill spiral climbs with held keys and steps match the mesh', async ({ 
     const s = await snap(page)
     const rampH =
       MILL.base + MILL.floorH + ((phi - MILL.doorPhi) / (Math.PI * 2 - 2 * MILL.doorPhi - MILL.topPhi)) * (MILL.top - MILL.floorH)
-    console.log(`phi ${phi.toFixed(2)} expect ${rampH.toFixed(2)} got y ${s.y.toFixed(2)} mlx ${s.mllx.toFixed(2)} mlz ${s.mlz.toFixed(2)} mllx ${s.mllx.toFixed(2)} mllz ${s.mllz.toFixed(2)} t ${s.t}`)
     expect(Math.abs(s.y - rampH)).toBeLessThanOrEqual(0.2)
     await page.evaluate(
       ({ a, x, z }) => a.teleport(x, z),
@@ -413,6 +415,87 @@ test('the stairwell back wall is closed on floor two', async ({ page }) => {
   expect(s.mlz).toBeGreaterThan(MANSION_STAIRWELL.lz0 - 0.1)
   expect(s.y).toBeLessThan(MANSION.floor2 + 0.1)
   expect(s.grounded).toBe(true)
+})
+
+test('the vista balcony ends the windmill climb with a working quest', async ({ page }) => {
+  const h = await api(page)
+  // Walking under the deck must not lift the player.
+  const balcMid = millWorld(
+    -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9,
+    Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9
+  )
+  await page.evaluate(({ a, x, z }) => a.teleport(x, z), { a: h, x: balcMid.x, z: balcMid.z })
+  await page.waitForTimeout(400)
+  const under = await snap(page)
+  expect(under.y).toBeLessThan(MILL.base + MILL.floorH + 0.1)
+  // Drop onto the landing from above, then walk out across the wall opening.
+  const landing = millWorld(
+    -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 2.4,
+    Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 2.4
+  )
+  await page.evaluate(({ a, x, z }) => a.teleport(x, z, true), { a: h, x: landing.x, z: landing.z })
+  await page.waitForTimeout(500)
+  const s0 = await snap(page)
+  expect(Math.abs(s0.y - (MILL.base + MILL.top))).toBeLessThanOrEqual(0.3)
+  expect(s0.grounded).toBe(true)
+  await steerTo(page, h, balcMid.x, balcMid.z, 0)
+  await page.keyboard.down('ArrowUp')
+  let onDeck = false
+  const t0 = (await snap(page)).t
+  for (let i = 0; i < 40; i++) {
+    const s = await snap(page)
+    const md = Math.hypot(s.mllx, s.mllz)
+    if (s.grounded && md > MILL.rIn + 0.15 && Math.abs(s.y - (MILL.base + MILL.top)) < 0.35) {
+      onDeck = true
+      break
+    }
+    if (s.t - t0 > 24) break
+    await steerTo(page, h, balcMid.x, balcMid.z, 0)
+    await page.waitForTimeout(220)
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(onDeck).toBe(true)
+  const s = await snap(page)
+  expect(s.y).toBeGreaterThan(MILL.base + MILL.top - 0.3)
+  // Walk the deck to the telescope and take in the view.
+  const telescope = millWorld(
+    -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9 + 0,
+    Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9
+  )
+  await steerTo(page, h, telescope.x, telescope.z, 0)
+  await page.keyboard.down('ArrowUp')
+  let nearLookout = ''
+  const t1 = (await snap(page)).t
+  for (let i = 0; i < 30 && nearLookout !== 'lookout'; i++) {
+    nearLookout = (await snap(page)).near
+    if (nearLookout === 'lookout') break
+    await steerTo(page, h, telescope.x, telescope.z, 0)
+    await page.waitForTimeout(220)
+    if ((await snap(page)).t - t1 > 16) break
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(nearLookout).toBe('lookout')
+  await page.keyboard.press('KeyE')
+  await page.waitForTimeout(400)
+  const q = (await snap(page)).quests.list.find((q) => q.id === 'lookout')
+  expect(q?.progress).toBe(1)
+  expect(q?.done).toBe(true)
+  await page.keyboard.press('KeyE')
+  await page.waitForTimeout(300)
+  expect((await snap(page)).quests.list.find((q) => q.id === 'lookout')?.progress).toBe(1)
+  // The rail holds: walk outward, stay on the deck.
+  const outer = millWorld(
+    -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 9.5,
+    Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 9.5
+  )
+  await steerTo(page, h, outer.x, outer.z, 0)
+  await page.keyboard.down('ArrowUp')
+  await page.waitForTimeout(2200)
+  await page.keyboard.up('ArrowUp')
+  const r = await snap(page)
+  expect(Math.hypot(r.mllx, r.mllz)).toBeLessThan(MILL_BALCONY.r1 - 0.15)
+  expect(r.grounded).toBe(true)
+  await page.screenshot({ path: 'test-results/collision-windmill-balcony.png' })
 })
 
 test('interior tour keeps the draw-call budget', async ({ page }) => {

@@ -18,7 +18,7 @@ export const PLAZA = { x: -6, z: -1, r: 6 }
 export const FOUNTAIN = { x: -6, z: -1 }
 export const WELL = { x: -13, z: 5 }
 export const POND = { x: -17, z: 12, r: 5.6 }
-export const WINDMILL = { x: 24, z: -20 }
+export const WINDMILL = { x: 34, z: -26 }
 export const SPAWN = { x: 0, z: 12 }
 
 const cosH = Math.cos(HOUSE.yaw)
@@ -215,33 +215,25 @@ export function mansionLocal(x: number, z: number) {
   return { lx: wc * dx - ws * dz, lz: ws * dx + wc * dz }
 }
 
+// Order is load-bearing: the mill pad applies first, then every flatten-to-zero
+// landmark re-flattens its own zone, so the mound can never slice through the
+// house or mansion no matter how the influence radii overlap. (The mill mound
+// used to be force-applied last here, which lifted terrain straight through
+// the cottage floor — regression guarded by e2e/math.spec.ts.)
 const FEATURES: Feature[] = [
-  { x: HOUSE.x, z: HOUSE.z, r: 8.5, f: 5, target: 0 },
-  { x: PLAZA.x, z: PLAZA.z, r: 6.5, f: 4, target: 0 },
-  { x: WELL.x, z: WELL.z, r: 2.6, f: 2, target: 0 },
   { x: WINDMILL.x, z: WINDMILL.z, r: 11.5, f: 6.5, target: WINDMILL_Y },
+  { x: WELL.x, z: WELL.z, r: 2.6, f: 2, target: 0 },
+  { x: PLAZA.x, z: PLAZA.z, r: 6.5, f: 4, target: 0 },
+  { x: HOUSE.x, z: HOUSE.z, r: 8.5, f: 5, target: 0 },
   { x: MANSION.x, z: MANSION.z, r: 11, f: 5, target: 0 },
 ]
-
-const GROUND_LEVEL = 0.5
 
 export function terrainHeight(x: number, z: number) {
   let h = terrainRaw(x, z)
   for (const ft of FEATURES) {
-    if (ft.target > GROUND_LEVEL && ft.target !== WINDMILL_Y) {
-      const d = Math.hypot(x - ft.x, z - ft.z)
-      h = lerp(h, ft.target, 1 - smoothstep(ft.r, ft.r + ft.f, d))
-    }
+    const d = Math.hypot(x - ft.x, z - ft.z)
+    h = lerp(h, ft.target, 1 - smoothstep(ft.r, ft.r + ft.f, d))
   }
-  for (const ft of FEATURES) {
-    if (ft.target <= GROUND_LEVEL) {
-      const d = Math.hypot(x - ft.x, z - ft.z)
-      h = lerp(h, ft.target, 1 - smoothstep(ft.r, ft.r + ft.f, d))
-    }
-  }
-  const mill = FEATURES.find((ft) => ft.target === WINDMILL_Y)!
-  const dm = Math.hypot(x - mill.x, z - mill.z)
-  h = lerp(h, mill.target, 1 - smoothstep(mill.r, mill.r + mill.f, dm))
   const pd = pathDistance(x, z)
   h = lerp(h, 0, (1 - smoothstep(1.7, 3.6, pd)) * 0.92)
   const dp = Math.hypot(x - POND.x, z - POND.z)
@@ -393,6 +385,7 @@ export const MILL = {
   rCenter: 0.7,
   doorPhi: 0.45,
   topPhi: 0.35,
+  doorHalf: 0.24,
   floorH: 1.2,
   porchR: 5.7,
   skirtR: 6.1,
@@ -403,6 +396,19 @@ export const MILL = {
 }
 export const MILL_ARC = Math.PI * 2 - 2 * MILL.doorPhi - MILL.topPhi
 export const MILL_TOWER = { h: 14.5, hubY: 12.2, sailR: 6.2 }
+MILL.doorHalf = 0.24
+// Vista balcony decked off the top landing (the climb's payoff, not a dead end):
+// a phi-arc ring outside the tower wall at landing height, with a guard rail and
+// a gap in the wall band above the landing so you can walk straight out.
+export const MILL_BALCONY = {
+  phi0: Math.PI * 2 - MILL.doorPhi - MILL.topPhi / 2 - 0.25, // arc start, wraps toward the door slit
+  phi1: Math.PI * 2 - MILL.doorHalf, // flush with the door-slit edge (one clean wall segment)
+  r0: MILL.rIn - 0.2, // overlaps the landing ring, no step at the threshold
+  r1: 7.3, // outer edge past the wall (rWall 5.2)
+  railH: 1.05,
+}
+export const MILL_LOOKOUT_MID_PHI = (MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2
+export const MILL_LOOKOUT = { r: 5.9, phi: MILL_LOOKOUT_MID_PHI, interactR: 2.2 }
 export const MILL_WALL_HW = 0.6
 export const MILL_DOOR_CLEAR = 0.2
 export const PLAYER = { r: 0.32, h: 1.55, step: 0.55, jumpApex: 0.845 }
@@ -442,6 +448,15 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
   const ml = millLocal(x, z)
   const d = Math.hypot(ml.lx, ml.lz)
   const inDoorCol = Math.abs(ml.lx) < MILL.doorStepW && d < 7.0
+  // Vista balcony: ring deck outside the tower wall at landing height. Gated on
+  // curY so walking underneath never lifts the player, and only inside the arc.
+  if (d > MILL_BALCONY.r0 - 0.05 && d < MILL_BALCONY.r1 && curY > MILL.base + MILL.top - 0.9) {
+    const phi0 = Math.atan2(-ml.lx, ml.lz)
+    const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
+    if (phi >= MILL_BALCONY.phi0 && phi <= MILL_BALCONY.phi1) {
+      h = Math.max(h, MILL.base + MILL.top)
+    }
+  }
   if (d < MILL.skirtR || inDoorCol) {
     if (d < MILL.rIn) {
       h = Math.max(h, MILL.base + MILL.floorH)
@@ -570,6 +585,10 @@ const bed2W = mansionWorld(3.5, -3.0)
 const bookW = houseWorld(1.9, 0.8)
 const stool1W = houseWorld(2.6, 0.2)
 const stool2W = houseWorld(2.5, 1.4)
+const lookoutW = millWorld(
+  -Math.sin(MILL_LOOKOUT.phi) * MILL_LOOKOUT.r,
+  Math.cos(MILL_LOOKOUT.phi) * MILL_LOOKOUT.r
+)
 const mstool1W = mansionWorld(1.9, 0.95)
 const mstool2W = mansionWorld(1.9, 2.05)
 const mstool3W = mansionWorld(-1.9, 0.95)
@@ -579,6 +598,7 @@ export const INTERACTABLES = [
   { id: 'bed', x: bedW.x, z: bedW.z, label: 'Sleep in the bed', r: 1.35 },
   { id: 'book', x: bookW.x, z: bookW.z, label: 'Read the book', r: 1.4 },
   { id: 'bed2', x: bed2W.x, z: bed2W.z, label: 'Sleep in the grand bed', r: 1.35 },
+  { id: 'lookout', x: lookoutW.x, z: lookoutW.z, label: 'Take in the view', r: MILL_LOOKOUT.interactR },
 ]
 export const SEATS = [
   { x: stool1W.x, z: stool1W.z, y: 0.61 },
@@ -595,10 +615,12 @@ export const SEATS = [
   const halfA = Math.atan2(hw, MILL.rWall)
   const first = MILL_DOOR_CLEAR + halfA
   const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
+  const balcSkip = Math.PI * 2 - MILL_BALCONY.phi0 + halfA
   const count = Math.max(2, Math.ceil((last - first) / (2 * halfA)) + 1)
   const step = (last - first) / (count - 1)
   for (let i = 0; i < count; i++) {
     const a = first + i * step
+    if (a < balcSkip) continue
     const p = millWorld(Math.sin(a) * MILL.rWall, Math.cos(a) * MILL.rWall)
     COLLIDERS.push({
       t: 'b',
@@ -613,6 +635,41 @@ export const SEATS = [
   }
   const pole = millWorld(0, 0)
   COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.35, y0: MILL.base + MILL.floorH, top: MILL.base + 14.2 })
+  // Balcony guard rail: tangential boxes along the outer edge plus two radial
+  // end panels, all raised (y0 = deck) so the porch below stays walkable.
+  const balTop = MILL.base + MILL.top
+  const railR = MILL_BALCONY.r1 - 0.12
+  const SEG = 6
+  for (let i = 0; i < SEG; i++) {
+    const a0 = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * i) / SEG
+    const a1 = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * (i + 1)) / SEG
+    const am = (a0 + a1) / 2
+    const p = millWorld(-Math.sin(am) * railR, Math.cos(am) * railR)
+    COLLIDERS.push({
+      t: 'b',
+      x: p.x,
+      z: p.z,
+      hw: railR * (a1 - a0) * 0.62,
+      hd: 0.12,
+      yaw: Math.PI - am,
+      y0: balTop,
+      top: balTop + MILL_BALCONY.railH,
+    })
+  }
+  const endR = (MILL.rIn + MILL_BALCONY.r1) / 2
+  for (const edge of [MILL_BALCONY.phi0 + 0.06, MILL_BALCONY.phi1 - 0.06]) {
+    const p = millWorld(-Math.sin(edge) * endR, Math.cos(edge) * endR)
+    COLLIDERS.push({
+      t: 'b',
+      x: p.x,
+      z: p.z,
+      hw: (MILL_BALCONY.r1 - MILL.rIn) / 2,
+      hd: 0.12,
+      yaw: Math.PI * 1.5 - edge,
+      y0: balTop,
+      top: balTop + MILL_BALCONY.railH,
+    })
+  }
 }
 
 export const game = {
@@ -655,6 +712,7 @@ export const game = {
   inside: false,
   interior: 0,
   windmill: 0,
+  vista: false,
   attack: 0,
   showColliders: false,
   colliderSolid: false,

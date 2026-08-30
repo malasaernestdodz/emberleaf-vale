@@ -33,6 +33,15 @@ GPU-instanced grass, and a house with a walkable interior.
   are built through `src/scene/door.ts`. New props ship with math invariants in
   `e2e/props.spec.ts` plus a gallery camera pose in `e2e/gallery.spec.ts`
   (see `prop-models`, `world-fit`, and `visual-verification` specs).
+- Audio is procedural WebAudio (`src/lib/audio.ts`) with settings persisted via
+  `src/lib/settings.ts`; never ship audio files or call `Math.random()` for
+  audio scheduling (use the seeded rng).
+- Gameplay state machines (slime, trees, quests, health) live in `src/lib/` as
+  plain exported objects updated from `useFrame`; scene components only render
+  them, and e2e reads them through the `window.__Ghibli` snapshot.
+- e2e assertions are state-based (snapshot polling loops) because SwiftShader
+  frame stalls of 500ms+ are normal; `playwright.kilo.config.ts` runs the suite
+  on a private port (:4322) when :4173 is contended.
 
 ## Commands
 
@@ -48,4 +57,6 @@ GPU-instanced grass, and a house with a walkable interior.
 - No physics engine (Rapier/cannon) — kinematic controller is lighter and deterministic.
 - No WebGPU-only path in v1 — WebGL2 + instancing; renderer swap to WebGPU/TSL is
   deferred (see design.md "Alternatives").
-- No audio, no multiplayer, no asset downloads — everything procedural.
+- No multiplayer, no downloaded assets (models, textures, audio) — everything
+  procedural. Audio is in-scope as of 2026-08-30 (`sound-system`,
+  `audio-system` specs).

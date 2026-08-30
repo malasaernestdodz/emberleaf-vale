@@ -5,6 +5,7 @@ type Metric = { name: string; total: number; perSec: number }
 
 type Snap = {
   ready: boolean
+  t: number
   x: number
   z: number
   hp: number
@@ -73,18 +74,20 @@ test('walking into a wall moves the collide.push counter, not just vibes', async
   )
   await page.waitForTimeout(400)
   const wall = mansionWorld(-3, 7.5)
-  let row: Metric | undefined
-  for (let i = 0; i < 12 && !row; i++) {
+  let pushed = 0
+  await page.keyboard.down('ArrowUp')
+  for (let i = 0; i < 30 && pushed < 3; i++) {
     await steerTo(page, h, wall.x, wall.z, 0)
-    await page.keyboard.down('ArrowUp')
-    await page.waitForTimeout(450)
-    await page.keyboard.up('ArrowUp')
-    row = (await metrics(page)).find((m) => m.name === 'collide.push')
+    await page.waitForTimeout(400)
+    pushed = Math.max(pushed, (await metrics(page)).find((m) => m.name === 'collide.push')?.total ?? 0)
   }
-  expect(row, 'collide.push counter exists').toBeTruthy()
-  expect(row!.total).toBeGreaterThanOrEqual(3)
-  const blocked = await snap(page)
+  await page.keyboard.up('ArrowUp')
+  expect(pushed, 'collide.push totals while grinding the wall').toBeGreaterThanOrEqual(3)
   const stopAt = mansionWorld(-3, 7)
+  await expect
+    .poll(async () => (await snap(page)).t, { timeout: 30_000, intervals: [500] })
+    .toBeGreaterThan(0.5)
+  const blocked = await snap(page)
   expect(blocked.z).toBeLessThan(stopAt.z)
 })
 

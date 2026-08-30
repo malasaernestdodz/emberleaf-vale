@@ -143,7 +143,14 @@ test('the slime costs the hero hearts and the HUD keeps count, then the vale men
   expect(hurt.hp).toBeLessThanOrEqual(3)
   expect(hurt.hp).toBeGreaterThan(0)
   await expect(page.getByTestId('player-hp')).toHaveText(`${hurt.hp}/5`)
-  await expect(page.locator('.heart:not(.empty)')).toHaveCount(hurt.hp)
+  // Regen can tick between the snapshot and the 150ms-polled DOM; assert the
+  // difference settles to zero instead of pinning one instant.
+  await expect
+    .poll(
+      async () => (await page.locator('.heart:not(.empty)').count()) - (await snap(page)).hp,
+      { timeout: 15_000 }
+    )
+    .toBe(0)
 
   await page.evaluate((a) => a.teleport(-21.5, -16), h)
   await expect.poll(async () => (await snap(page)).hp, { timeout: 45_000 }).toBe(5)

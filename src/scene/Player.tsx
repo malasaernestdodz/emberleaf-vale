@@ -185,6 +185,10 @@ export function Player() {
       } else if (!game.sleeping && game.near === 'book') {
         game.book = true
         playSfx('page')
+      } else if (game.near === 'lookout' && !game.vista) {
+        game.vista = true
+        playSfx('page')
+        questEvent('lookout')
       } else if (game.near === 'pk' && pkRef.current) {
         const p = pkRef.current
         inv[p.type]++

@@ -270,8 +270,13 @@ test('left click swings the sword by default', async ({ page }) => {
     await page.waitForTimeout(250)
   }
   expect(swung).toBe(true)
+  // Pointer lock can stall the RAF loop for seconds on software GL; wait for
+  // game time to actually flow before judging the swing decay.
+  await expect
+    .poll(async () => (await snap(page)).t, { timeout: 30_000, intervals: [500] })
+    .toBeGreaterThan(1)
   let done = false
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 40; i++) {
     if ((await snap(page)).attack === 0) {
       done = true
       break
@@ -332,7 +337,7 @@ test('windmill spiral climbs to the top', async ({ page }) => {
   let top = false
   for (let i = 0; i < 140; i++) {
     const s = await snap(page)
-    if (s.y > MILL.base + MILL.top - 0.6) {
+    if (s.y > MILL.base + MILL.top - 0.3) {
       top = true
       break
     }

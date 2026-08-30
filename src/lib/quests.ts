@@ -17,6 +17,7 @@ export const quests: Quest[] = [
   { id: 'fish', title: 'Gone Fishing', desc: 'Catch a fish from the pond', target: 1, progress: 0, done: false },
   { id: 'slime', title: 'Slime Bopper', desc: 'Pop the garden slime', target: 1, progress: 0, done: false },
   { id: 'sleep', title: 'Sweet Dreams', desc: 'Sleep in a bed', target: 1, progress: 0, done: false },
+  { id: 'lookout', title: 'The Keeper’s Watch', desc: 'Climb the windmill and take in the view', target: 1, progress: 0, done: false },
 ]
 
 export function questsDone() {
@@ -32,9 +33,10 @@ export function questEvent(id: string, n = 1) {
     q.progress = Math.min(q.target, q.progress + n)
     if (q.progress >= q.target) {
       q.done = true
-      game.toast = `Quest complete: ${q.title}`
+      game.toast =
+        id === 'lookout' ? 'The whole vale rolls out below you…' : `Quest complete: ${q.title}`
       game.toastT = 3
-      playSfx('quest')
+      playSfx(id === 'lookout' ? 'page' : 'quest')
     }
     touched = true
   }

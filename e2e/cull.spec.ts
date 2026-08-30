@@ -50,9 +50,9 @@ test('landmarks flip visibility across the render distance boundary', async ({ p
   const list = await page.evaluate((a) => a.cullList(), h)
   const near = list.find((e) => e.id === 'fountain')!
   const far = list.find((e) => e.id === 'mansion')!
-  expect(near.dist).toBeLessThan(20)
+  expect(near.dist - near.r).toBeLessThan(20)
   expect(await page.evaluate((a) => a.cullVisible('fountain'), h)).toBe(true)
-  expect(far.dist).toBeGreaterThan(20)
+  expect(far.dist - far.r).toBeGreaterThan(20)
   expect(await page.evaluate((a) => a.cullVisible('mansion'), h)).toBe(false)
   const s = await snap(page)
   expect(s.settings.renderDistance).toBe(20)

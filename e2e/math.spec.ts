@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import {
+  COLLIDERS,
   FOUNTAIN,
   HOUSE,
   HOUSE_ROOF_PROFILE,
@@ -8,6 +9,7 @@ import {
   MANSION_STAIRWELL,
   MILL,
   MILL_ARC,
+  MILL_BALCONY,
   WELL,
   WORLD_R,
   groundHeight,
@@ -85,20 +87,21 @@ test('windmill spiral rises monotonically with no seams above step height', () =
 })
 
 test('windmill porch, skirt and entry steps match the plinth mesh', () => {
+  const lowY = MILL.base + MILL.floorH
   const porch = millWorld(0, MILL.porchR - 0.2)
-  expect(groundHeight(porch.x, porch.z)).toBeCloseTo(MILL.base + MILL.floorH, 2)
+  expect(groundHeight(porch.x, porch.z, lowY)).toBeCloseTo(MILL.base + MILL.floorH, 2)
   const skirt = millWorld(2, Math.sqrt((MILL.porchR + MILL.skirtR) ** 2 / 4 - 4))
-  expect(groundHeight(skirt.x, skirt.z)).toBeCloseTo(MILL.base + MILL.floorH / 2, 2)
-  const skirtEdge = millWorld(0, MILL.skirtR - 0.02)
-  expect(groundHeight(skirtEdge.x, skirtEdge.z)).toBeLessThan(MILL.base + 0.1)
+  expect(groundHeight(skirt.x, skirt.z, lowY)).toBeCloseTo(MILL.base + MILL.floorH / 2, 2)
+  const skirtEdge = millWorld(2, Math.sqrt(MILL.skirtR ** 2 - 4 - 0.05))
+  expect(groundHeight(skirtEdge.x, skirtEdge.z, lowY)).toBeLessThan(MILL.base + 0.1)
   const step1 = millWorld(0, 6.0)
-  expect(groundHeight(step1.x, step1.z)).toBeCloseTo(MILL.base + MILL.step1Top, 2)
+  expect(groundHeight(step1.x, step1.z, lowY)).toBeCloseTo(MILL.base + MILL.step1Top, 2)
   const step2 = millWorld(0, 6.6)
-  expect(groundHeight(step2.x, step2.z)).toBeCloseTo(MILL.base + MILL.step2Top, 2)
+  expect(groundHeight(step2.x, step2.z, lowY)).toBeCloseTo(MILL.base + MILL.step2Top, 2)
   const ground = millWorld(0, 7.4)
-  expect(groundHeight(ground.x, ground.z)).toBeLessThan(MILL.base + 0.05)
+  expect(groundHeight(ground.x, ground.z, lowY)).toBeLessThan(MILL.base + 0.05)
   const porchSide = millWorld(2.6, 4.0)
-  expect(groundHeight(porchSide.x, porchSide.z)).toBeCloseTo(MILL.base + MILL.floorH, 2)
+  expect(groundHeight(porchSide.x, porchSide.z, lowY)).toBeCloseTo(MILL.base + MILL.floorH, 2)
 })
 
 test('cottage roof walkable equals the shared profile', () => {
@@ -146,5 +149,52 @@ test('terrain stays inside the world radius', () => {
     const h = terrainHeight(Math.cos(a) * WORLD_R, Math.sin(a) * WORLD_R)
     expect(Number.isFinite(h)).toBe(true)
     expect(Math.abs(h)).toBeLessThan(6)
+  }
+})
+
+test('the mill mound never slices through the house pad (ordering invariant)', () => {
+  for (const [lx, lz] of [
+    [0, 0],
+    [-3.5, -3],
+    [3.5, -3],
+    [3.5, 3],
+    [-3.5, 3],
+    [0, 3.2],
+  ] as const) {
+    const p = houseWorld(lx, lz)
+    expect(Math.abs(terrainHeight(p.x, p.z))).toBeLessThan(0.05)
+  }
+  const towardMill = houseWorld(0, 3.4)
+  const away = houseWorld(0, 8.4)
+  const d1 = terrainHeight(towardMill.x, towardMill.z)
+  const d2 = terrainHeight(away.x, away.z)
+  expect(Math.abs(d1 - d2)).toBeLessThan(1.6)
+})
+
+test('windmill vista balcony is decked, fenced, and gated on height', () => {
+  const deck = MILL.base + MILL.top
+  const lowCur = MILL.base + MILL.floorH
+  const midPhi = (MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2
+  for (const phi of [MILL_BALCONY.phi0 + 0.1, midPhi, MILL_BALCONY.phi1 - 0.1]) {
+    for (const r of [MILL.rIn + 0.3, 5.9, MILL_BALCONY.r1 - 0.3]) {
+      const p = millWorld(-Math.sin(phi) * r, Math.cos(phi) * r)
+      expect(groundHeight(p.x, p.z)).toBeCloseTo(deck, 2)
+      // Same spot from porch level: the deck never yanks the player up.
+      expect(groundHeight(p.x, p.z, lowCur)).toBeLessThan(MILL.base + MILL.floorH + 0.1)
+    }
+  }
+  const outsideArc = millWorld(-Math.sin(midPhi + 0.5) * 5.9, Math.cos(midPhi + 0.5) * 5.9)
+  expect(groundHeight(outsideArc.x, outsideArc.z)).toBeLessThan(deck)
+  const railR = MILL_BALCONY.r1 - 0.12
+  const tangentials = COLLIDERS.filter(
+    (c) =>
+      c.t === 'b' &&
+      (c.y0 ?? 0) === deck &&
+      c.top === deck + MILL_BALCONY.railH &&
+      Math.hypot(c.x - MILL.x, c.z - MILL.z) > railR - 0.5
+  )
+  expect(tangentials.length).toBeGreaterThanOrEqual(6)
+  for (const c of tangentials) {
+    expect(Math.hypot(c.x - MILL.x, c.z - MILL.z)).toBeGreaterThan(railR - 1.0)
   }
 })
