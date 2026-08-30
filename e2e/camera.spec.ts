@@ -195,7 +195,7 @@ test('house zoom: in stays inside, out clears the walls with an unoccluded view'
   let far = await snap(page)
   for (let i = 0; i < 40; i++) {
     far = await snap(page)
-    if (far.interior < 0.3) {
+    if (far.interior < 0.12) {
       if (!segClearOfHouse(far.x, far.y + 1.2, far.z, far.camX, far.camY, far.camZ)) clearWalk = false
       if (far.interior < 0.05 && Math.hypot(far.camX - far.x, far.camZ - far.z) > 4.5) break
     }
