@@ -9,7 +9,9 @@
     "preview": "vite preview --port 4173 --strictPort",
     "lint:sg": "ast-grep scan",
     "test:camera": "playwright test e2e/camera.spec.ts",
-    "test:e2e": "playwright test"
+    "test:props": "playwright test e2e/props.spec.ts e2e/gallery.spec.ts",
+    "test:e2e": "playwright test",
+    "spec:validate": "node scripts/validate-spec.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",

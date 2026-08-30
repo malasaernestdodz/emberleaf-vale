@@ -1,0 +1,13 @@
+id: fog-range-only-in-culler
+language: TypeScript
+severity: error
+message: Fog near/far must be driven by the render distance setting inside Culler.
+note: See openspec culling-system spec (fog couples to render distance).
+files:
+  - 'src/**'
+ignores:
+  - 'src/scene/Culler.tsx'
+rule:
+  any:
+    - pattern: $FOG.far = $V
+    - pattern: $FOG.near = $V

@@ -18,6 +18,7 @@ import { Pickups } from './Pickups'
 import { Player } from './Player'
 import { Colliders } from './Colliders'
 import { CameraRig } from './CameraRig'
+import { Culler } from './Culler'
 import { Perf } from './Perf'
 import { Probe } from './Probe'
 import { Effects } from './Effects'
@@ -55,6 +56,7 @@ export function World() {
       <Player />
       <Colliders />
       <CameraRig />
+      <Culler />
       <Perf />
       <Probe />
       <Effects />

@@ -63,7 +63,7 @@ export function Fountain() {
 
   const ramp = getToonRamp()
   return (
-    <group position={[FOUNTAIN.x, 0, FOUNTAIN.z]}>
+    <group position={[FOUNTAIN.x, 0, FOUNTAIN.z]} userData={{ cullId: 'fountain' }}>
       <mesh geometry={stoneGeo} castShadow receiveShadow>
         <meshToonMaterial color="#a8a29a" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>

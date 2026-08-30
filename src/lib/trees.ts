@@ -87,7 +87,7 @@ export function updateTrees(dt: number) {
         life.t = 0
         life.hits = 0
         life.dir = 0
-        TREE_COLLIDERS[i].r = 0.5 * TREES[i].s
+        TREE_COLLIDERS[i].r = 0.45 * TREES[i].s
       }
     }
   }

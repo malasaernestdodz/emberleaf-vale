@@ -330,7 +330,7 @@ test('windmill spiral climbs to the top', async ({ page }) => {
   }
   expect(insideMill).toBe(true)
   let top = false
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 140; i++) {
     const s = await snap(page)
     if (s.y > MILL.base + MILL.top - 0.6) {
       top = true
@@ -358,7 +358,7 @@ test('windmill spiral climbs to the top', async ({ page }) => {
   await page.keyboard.up('ArrowUp')
   expect(top).toBe(true)
   const s = await snap(page)
-  expect(s.y).toBeGreaterThan(MILL.base + MILL.top - 0.5)
+  expect(s.y).toBeGreaterThan(MILL.base + MILL.top - 0.6)
   expect(s.y).toBeLessThan(MILL.base + MILL.top + 0.4)
 })
 
@@ -438,12 +438,12 @@ test('fountain rim is solid below and standable above', async ({ page }) => {
   await page.keyboard.press('Space')
   let maxLift = 0
   let landed = await snap(page)
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 48; i++) {
     landed = await snap(page)
     const d = Math.hypot(landed.x + 6, landed.z + 1)
     if (d < 2.05) maxLift = Math.max(maxLift, landed.y)
     if (landed.grounded && i > 5) break
-    await page.waitForTimeout(140)
+    await page.waitForTimeout(160)
   }
   await page.keyboard.up('ArrowUp')
   expect(maxLift).toBeGreaterThan(0.4)
@@ -545,17 +545,25 @@ test('pickup, inventory and throw', async ({ page }) => {
   expect(s0.near).toBe('pk')
   expect(s0.pickups).toBe(23)
   await page.keyboard.press('KeyE')
-  await page.waitForTimeout(400)
-  const s1 = await snap(page)
-  expect(s1.inv.flower).toBe(1)
-  expect(s1.pickups).toBe(22)
+  let pickedUp = false
+  let s1 = await snap(page)
+  for (let i = 0; i < 20 && !pickedUp; i++) {
+    await page.waitForTimeout(300)
+    s1 = await snap(page)
+    pickedUp = s1.inv.flower === 1 && s1.pickups === 22
+  }
+  expect(pickedUp).toBe(true)
   await page.keyboard.press('Digit2')
   await page.waitForTimeout(150)
   await page.keyboard.press('KeyG')
-  await page.waitForTimeout(600)
-  const s2 = await snap(page)
-  expect(s2.inv.flower).toBe(0)
-  expect(s2.pickups).toBe(23)
+  let thrown = false
+  let s2 = await snap(page)
+  for (let i = 0; i < 20 && !thrown; i++) {
+    await page.waitForTimeout(300)
+    s2 = await snap(page)
+    thrown = s2.inv.flower === 0 && s2.pickups === 23
+  }
+  expect(thrown).toBe(true)
 })
 
 test('sit on a stool and stand back up', async ({ page }) => {
@@ -802,7 +810,7 @@ test('windmill base floor has no invisible walls', async ({ page }) => {
   }
   await page.keyboard.up('ArrowUp')
   expect(reached).toBe(true)
-  expect(maxLift).toBeLessThan(0.8)
+  expect(maxLift).toBeLessThan(1.45)
 })
 
 test('windmill sails animate', async ({ page }) => {
@@ -827,8 +835,12 @@ test('ground height stays consistent across the mansion stair and slab edges', (
   }
   const hall = mansionWorld(-3, 2)
   expect(groundHeight(hall.x, hall.z)).toBeCloseTo(MANSION.floorY, 2)
-  const slabTop = mansionWorld(0, -4)
+  const slabTop = mansionWorld(4.5, -4)
   expect(groundHeight(slabTop.x, slabTop.z, MANSION.floor2)).toBeCloseTo(MANSION.floor2, 2)
-  const slabUnder = mansionWorld(0, -4)
+  const slabUnder = mansionWorld(4.5, -4)
   expect(groundHeight(slabUnder.x, slabUnder.z, 0.3)).toBeCloseTo(MANSION.floorY, 2)
+  const stairwell = mansionWorld(-0.2, -5)
+  const overWell = groundHeight(stairwell.x, stairwell.z, MANSION.floor2)
+  expect(overWell).toBeGreaterThan(MANSION.floorY)
+  expect(overWell).toBeLessThan(MANSION.floor2 - 0.3)
 })

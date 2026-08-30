@@ -44,13 +44,14 @@ test('windmill wall tiling is sealed around the door', () => {
 
 test('windmill interior keeps every sector single-valued and walkable', () => {
   const wedge = millWorld(0, MILL.rIn - 0.2)
-  expect(groundHeight(wedge.x, wedge.z)).toBeLessThan(MILL.base + 0.2)
+  expect(groundHeight(wedge.x, wedge.z)).toBeCloseTo(MILL.base + MILL.floorH, 2)
   const landingPhi = Math.PI * 2 - MILL.doorPhi - MILL.topPhi / 2
   const landing = millWorld(-Math.sin(landingPhi) * 2.625, Math.cos(landingPhi) * 2.625)
   expect(groundHeight(landing.x, landing.z)).toBeCloseTo(MILL.base + MILL.top, 2)
-  const rampStepAtLanding = MILL.top - 0.02 - ((MILL_ARC - MILL.topPhi) / MILL_ARC) * (MILL.top - 0.02)
+  const rampStepAtLanding =
+    MILL.top - MILL.floorH - ((MILL_ARC - MILL.topPhi) / MILL_ARC) * (MILL.top - MILL.floorH)
   expect(rampStepAtLanding).toBeLessThanOrEqual(PLAYER.step)
-  const spiralGrade = (MILL.top - 0.02) / (MILL_ARC * (MILL.rCenter + MILL.rIn) / 2)
+  const spiralGrade = (MILL.top - MILL.floorH) / (MILL_ARC * ((MILL.rCenter + MILL.rIn) / 2))
   expect(spiralGrade).toBeGreaterThan(0.15)
   expect(spiralGrade).toBeLessThan(0.55)
 })

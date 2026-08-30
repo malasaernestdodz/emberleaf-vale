@@ -29,6 +29,10 @@ GPU-instanced grass, and a house with a walkable interior.
 - All time-based smoothing is framerate-independent (`1 - exp(-k*dt)` damping).
 - Test hooks live behind one global: `window.__Ghibli` (see `e2e-verification` spec).
 - Windows shell: `npm.ps1` is blocked by execution policy — always use `npm.cmd`.
+- Prop dimensions live in `src/lib/world.ts`, never hard-coded in scenes; doors
+  are built through `src/scene/door.ts`. New props ship with math invariants in
+  `e2e/props.spec.ts` plus a gallery camera pose in `e2e/gallery.spec.ts`
+  (see `prop-models`, `world-fit`, and `visual-verification` specs).
 
 ## Commands
 

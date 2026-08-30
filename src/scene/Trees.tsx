@@ -1,9 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { hash2, lerp, mulberry32, smoothstep } from '../lib/math'
 import { playSfx } from '../lib/audio'
+import { attachCullable, registerCullable } from '../lib/cull'
 import { fallAngle, growScale, restBounce, treeLife, updateTrees } from '../lib/trees'
 import { game, ROCKS, TREES } from '../lib/world'
 import { endSys } from '../lib/trace'
@@ -104,6 +105,14 @@ export function Trees() {
   )
   const groups = useRef<(THREE.Group | null)[]>([])
   const prevPhase = useRef<string[]>(TREES.map(() => 'up'))
+
+  useEffect(() => {
+    TREES.forEach((t, i) => {
+      registerCullable(`tree-${i}`, t.x, t.y + 1.6, t.z, 3.2)
+      const g = groups.current[i]
+      if (g) attachCullable(`tree-${i}`, g)
+    })
+  }, [])
 
   useFrame((_, delta) => {
     const t0 = performance.now()

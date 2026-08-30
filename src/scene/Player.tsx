@@ -21,9 +21,13 @@ import {
   mansionLocal,
 } from '../lib/world'
 import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } from '../lib/items'
+import { fullHeal, healPlayer, health, updateHealth } from '../lib/health'
 import { questEvent } from '../lib/quests'
 import { applySlimeHit } from '../lib/slime'
+import { endSys, inc } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
+
+export const wield = { rod: false, sword: false, axe: false }
 
 export function Player() {
   const root = useRef<THREE.Group>(null!)
@@ -34,6 +38,7 @@ export function Player() {
   const legR = useRef<THREE.Group>(null!)
   const axe = useRef<THREE.Group>(null!)
   const sword = useRef<THREE.Group>(null!)
+  const rod = useRef<THREE.Group>(null!)
   const held = useRef<THREE.Group>(null!)
   const walk = useRef(0)
   const squash = useRef(0)
@@ -53,6 +58,7 @@ export function Player() {
   const attackUntil = useRef(0)
 
   useFrame((_, delta) => {
+    const tFrame = performance.now()
     if (game.paused) return
     const raw = Math.min(delta, 0.5)
     game.time += raw
@@ -78,6 +84,7 @@ export function Player() {
       if (t > 3.5) {
         game.sleeping = false
         game.sleepVeil = 0
+        fullHeal()
         questEvent('sleep')
         game.toast = 'You slept until morning'
         game.toastT = 3
@@ -120,6 +127,24 @@ export function Player() {
       game.attack = 0
       if (axe.current) axe.current.visible = false
       if (sword.current) sword.current.visible = false
+      if (rod.current) rod.current.visible = false
+      if (held.current) held.current.visible = false
+      endSys('player', tFrame)
+      return
+    }
+
+    if (updateHealth(raw)) {
+      root.current.position.set(game.x, game.y, game.z)
+      root.current.rotation.y = game.heading
+      game.near = ''
+      game.nearLabel = ''
+      game.tool = ''
+      game.attack = 0
+      if (axe.current) axe.current.visible = false
+      if (sword.current) sword.current.visible = false
+      if (rod.current) rod.current.visible = false
+      if (held.current) held.current.visible = false
+      endSys('player', tFrame)
       return
     }
 
@@ -192,9 +217,11 @@ export function Player() {
         if (axe.current) axe.current.visible = false
       } else if (SLOT_TYPES[selected.slot] === 'food' && inv.food > 0) {
         inv.food--
+        healPlayer(2)
         playSfx('eat')
         game.buffT = 10
-        game.toast = 'Yum! Feeling energetic'
+        game.toast =
+          health.hp < health.maxHp ? `Mended to ${health.hp}/${health.maxHp} hearts` : 'Yum! Feeling energetic'
         game.toastT = 2
       }
     }
@@ -268,6 +295,7 @@ export function Player() {
       body.current.position.y = 0
       body.current.rotation.x = 0
       body.current.scale.set(1, 1, 1)
+      endSys('player', tFrame)
       return
     }
 
@@ -301,6 +329,7 @@ export function Player() {
       let nx = game.x + game.vx * sdt
       let nz = game.z + game.vz * sdt
       if (game.grounded && groundHeight(nx, nz, game.y) > game.y + 0.55) {
+        inc('player.stepblock')
         if (groundHeight(nx, game.z, game.y) <= game.y + 0.55) nz = game.z
         else if (groundHeight(game.x, nz, game.y) <= game.y + 0.55) nx = game.x
         else {
@@ -322,6 +351,7 @@ export function Player() {
     if (spaceEdge && game.grounded && !frozen) {
       game.vy = 5.2
       game.grounded = false
+      inc('player.jump')
     }
     if (!game.grounded) {
       const vsteps = Math.max(1, Math.ceil(raw / 0.016))
@@ -333,6 +363,9 @@ export function Player() {
           if (game.vy < -7) {
             squash.current = 1
             playSfx('thud')
+            inc('player.land.hard')
+          } else {
+            inc('player.land')
           }
           game.y = gh
           game.vy = 0
@@ -341,6 +374,7 @@ export function Player() {
       }
     } else if (gh < game.y - 0.5) {
       game.grounded = false
+      inc('player.fall')
     } else {
       game.y = gh
     }
@@ -462,11 +496,16 @@ export function Player() {
     game.tool = game.fishing ? 'rod' : chopping || near === 'chop' ? 'axe' : 'sword'
     if (axe.current) axe.current.visible = game.tool === 'axe'
     if (sword.current) sword.current.visible = game.tool === 'sword' && game.mode !== 'sit'
+    if (rod.current) rod.current.visible = game.tool === 'rod' && game.mode !== 'sit'
+    wield.axe = !!axe.current?.visible
+    wield.sword = !!sword.current?.visible
+    wield.rod = !!rod.current?.visible
     if (held.current) {
       const show = !game.fishing && game.mode !== 'sit' && inv[SLOT_TYPES[selected.slot]] > 0
       held.current.visible = show
       for (let i = 0; i < SLOT_TYPES.length; i++) held.current.children[i].visible = show && i === selected.slot
     }
+    endSys('player', tFrame)
   })
 
   const ramp = getToonRamp()
@@ -532,7 +571,7 @@ export function Player() {
               <meshToonMaterial color="#cfd6dd" gradientMap={ramp} />
             </mesh>
           </group>
-          <group position={[0, -0.34, 0.08]} rotation-x={-1.1}>
+          <group ref={rod} visible={false} position={[0, -0.34, 0.08]} rotation-x={-1.1}>
             <mesh castShadow position={[0, 0.5, 0]}>
               <cylinderGeometry args={[0.018, 0.024, 1.15, 6]} />
               <meshToonMaterial color="#7a5b3a" gradientMap={ramp} />

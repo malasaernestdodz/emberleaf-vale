@@ -39,14 +39,27 @@ function labelSprite(text: string) {
 export function Colliders() {
   const group = useRef<THREE.Group>(null!)
 
-  const { entries, mats, playerLine } = useMemo(() => {
-    const mk = (color: string, opacity: number) =>
+  const { entries, mats, playerLine, playerSolid } = useMemo(() => {
+    const wire = (color: string, opacity: number) =>
       new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthTest: false })
+    const solid = (color: string, opacity: number) =>
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
     const mats = {
-      boxOn: mk('#ffb35c', 0.95),
-      cylOn: mk('#4de3cc', 0.95),
-      elevOn: mk('#f472d0', 0.95),
-      off: mk('#9db2c7', 0.16),
+      boxOn: wire('#ffb35c', 0.95),
+      cylOn: wire('#4de3cc', 0.95),
+      elevOn: wire('#f472d0', 0.95),
+      off: wire('#9db2c7', 0.16),
+      solidBoxOn: solid('#ffb35c', 0.2),
+      solidCylOn: solid('#4de3cc', 0.2),
+      solidElevOn: solid('#f472d0', 0.2),
+      solidOff: solid('#9db2c7', 0.05),
     }
 
     const entries = COLLIDERS.map((c, i) => {
@@ -63,6 +76,10 @@ export function Colliders() {
       line.position.set(c.x, y0 + h / 2, c.z)
       if (c.t === 'b') line.rotation.y = c.yaw
       line.renderOrder = 990
+      const shell = new THREE.Mesh(base, mats.solidOff)
+      shell.position.copy(line.position)
+      shell.rotation.y = line.rotation.y
+      shell.renderOrder = 985
       const dims = colliderDims(c)
       const { tex, aspect } = labelSprite(`#${i} ${dims}${y0 > 0.01 ? ` y0 ${y0.toFixed(2)}` : ''}`)
       const sprite = new THREE.Sprite(
@@ -73,46 +90,72 @@ export function Colliders() {
       sprite.renderOrder = 1000
       sprite.visible = false
 
-      return { line, sprite, c, y0, r0: c.t === 'c' ? c.r : 0 }
+      return { line, shell, sprite, c, y0, r0: c.t === 'c' ? c.r : 0 }
     })
 
     const playerLine = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.CylinderGeometry(PLAYER_R, PLAYER_R, PLAYER_H, 12, 1)),
-      mk('#ffffff', 1)
+      wire('#ffffff', 1)
     )
     playerLine.renderOrder = 995
-    return { entries, mats, playerLine }
+    const playerSolid = new THREE.Mesh(
+      new THREE.CylinderGeometry(PLAYER_R, PLAYER_R, PLAYER_H, 12, 1),
+      solid('#ffffff', 0.12)
+    )
+    playerSolid.renderOrder = 984
+    return { entries, mats, playerLine, playerSolid }
   }, [])
 
   useFrame(() => {
     if (consumeEdge('KeyC')) game.showColliders = !game.showColliders
-    if (group.current) group.current.visible = game.showColliders
-    if (!game.showColliders) return
+    if (consumeEdge('KeyV')) game.colliderSolid = !game.colliderSolid
+    const anyView = game.showColliders || game.colliderSolid
+    if (group.current) group.current.visible = anyView
+    if (!anyView) return
     const feet = game.y
     for (const e of entries) {
       const active = colliderBlocks(e.c, feet)
-      e.line.material = !active
+      const lineMat = !active
         ? mats.off
         : e.y0 > 0.01
           ? mats.elevOn
           : e.c.t === 'c'
             ? mats.cylOn
             : mats.boxOn
+      const solidMat = !active
+        ? mats.solidOff
+        : e.y0 > 0.01
+          ? mats.solidElevOn
+          : e.c.t === 'c'
+            ? mats.solidCylOn
+            : mats.solidBoxOn
+      e.line.material = lineMat
+      e.shell.material = solidMat
       e.line.position.x = e.c.x
       e.line.position.z = e.c.z
+      e.shell.position.x = e.c.x
+      e.shell.position.z = e.c.z
       let shown = true
       if (e.c.t === 'c') {
         const s = e.c.r / e.r0
         shown = s > 0.001
-        e.line.visible = shown
+        e.line.visible = shown && game.showColliders
+        e.shell.visible = shown && game.colliderSolid
         e.line.scale.set(s, 1, s)
+        e.shell.scale.set(s, 1, s)
+      } else {
+        e.line.visible = game.showColliders
+        e.shell.visible = game.colliderSolid
       }
       const d = Math.hypot(game.x - e.c.x, game.z - e.c.z)
       e.sprite.visible = shown && d < LABEL_RANGE
       e.sprite.position.x = e.c.x
       e.sprite.position.z = e.c.z
     }
+    playerLine.visible = game.showColliders
+    playerSolid.visible = game.colliderSolid
     playerLine.position.set(game.x, feet + PLAYER_H / 2, game.z)
+    playerSolid.position.set(game.x, feet + PLAYER_H / 2, game.z)
   })
 
   return (
@@ -121,9 +164,13 @@ export function Colliders() {
         <primitive key={i} object={e.line} />
       ))}
       {entries.map((e, i) => (
+        <primitive key={`m${i}`} object={e.shell} />
+      ))}
+      {entries.map((e, i) => (
         <primitive key={`s${i}`} object={e.sprite} />
       ))}
       <primitive object={playerLine} />
+      <primitive object={playerSolid} />
     </group>
   )
 }

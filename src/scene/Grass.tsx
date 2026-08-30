@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mulberry32 } from '../lib/math'
 import { LITE } from '../lib/flags'
 import { perfStore } from '../lib/perf'
+import { settings } from '../lib/settings'
 import { endSys } from '../lib/trace'
 import {
   FOUNTAIN,
@@ -30,13 +31,14 @@ attribute float aPhase;
 attribute float aMix;
 uniform float uTime;
 uniform vec3 uPlayer;
+uniform float uCull;
 varying float vY;
 varying float vMix;
 varying float vDist;
 void main() {
   vec3 world0 = position + aOffset;
   float d0 = distance(world0, cameraPosition);
-  if (d0 > 74.0) {
+  if (d0 > uCull) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     vDist = d0;
     vY = uv.y;
@@ -87,12 +89,13 @@ attribute vec3 aOffset;
 attribute vec3 aCol;
 attribute float aPhase;
 uniform float uTime;
+uniform float uCull;
 varying vec3 vCol;
 varying float vDist;
 void main() {
   vec3 world0 = position + aOffset;
   float d0 = distance(world0, cameraPosition);
-  if (d0 > 74.0) {
+  if (d0 > uCull) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     vDist = d0;
     vCol = aCol;
@@ -150,7 +153,7 @@ export function Grass() {
       if (Math.hypot(x - POND.x, z - POND.z) < 6.6) continue
       if (Math.hypot(x - WINDMILL.x, z - WINDMILL.z) < 9.5) continue
       const mnl = mansionLocal(x, z)
-      if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 8.0) continue
+      if (Math.abs(mnl.lx) < 8.4 && Math.abs(mnl.lz) < 8.9) continue
       if (Math.hypot(x - WELL.x, z - WELL.z) < 1.6) continue
       if (pathDistance(x, z) < 1.9) continue
       let near = false
@@ -201,6 +204,7 @@ export function Grass() {
         uTime: { value: 0 },
         uPlayer: { value: new THREE.Vector3() },
         uFogColor: { value: new THREE.Color('#bcd9ee') },
+        uCull: { value: LITE ? 70 : 170 },
       },
       vertexShader: grassVert,
       fragmentShader: grassFrag,
@@ -248,6 +252,7 @@ export function Grass() {
       uniforms: {
         uTime: { value: 0 },
         uFogColor: { value: new THREE.Color('#bcd9ee') },
+        uCull: { value: LITE ? 70 : 170 },
       },
       vertexShader: flowerVert,
       fragmentShader: flowerFrag,
@@ -264,12 +269,20 @@ export function Grass() {
     }
   }, [grass, flowers])
 
+  const grassMesh = useRef<THREE.Mesh>(null)
+  const flowerMesh = useRef<THREE.Mesh>(null)
+
   useFrame((_, delta) => {
     const t0 = performance.now()
     const dt = Math.min(delta, 0.05)
+    const st = settings.get()
     grass.mat.uniforms.uTime.value += dt
     grass.mat.uniforms.uPlayer.value.set(game.x, game.y, game.z)
+    grass.mat.uniforms.uCull.value = st.renderDistance
     flowers.mat.uniforms.uTime.value += dt
+    flowers.mat.uniforms.uCull.value = st.renderDistance
+    if (grassMesh.current) grassMesh.current.visible = st.showGrass
+    if (flowerMesh.current) flowerMesh.current.visible = st.showGrass
     const gs = perfStore.get().grassScale
     const wantGrass = Math.floor(grass.count * gs)
     if (grass.geo.instanceCount !== wantGrass) {
@@ -282,9 +295,9 @@ export function Grass() {
   })
 
   return (
-    <>
-      <mesh geometry={grass.geo} material={grass.mat} frustumCulled={false} />
-      <mesh geometry={flowers.geo} material={flowers.mat} frustumCulled={false} />
-    </>
+    <group name="grass-root">
+      <mesh ref={grassMesh} geometry={grass.geo} material={grass.mat} frustumCulled={false} />
+      <mesh ref={flowerMesh} geometry={flowers.geo} material={flowers.mat} frustumCulled={false} />
+    </group>
   )
 }

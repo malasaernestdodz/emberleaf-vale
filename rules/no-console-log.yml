@@ -1,0 +1,8 @@
+id: no-console-log
+language: TypeScript
+severity: error
+message: Use trace()/inc() from lib/trace instead of console logging — all observability must flow through the metrics/trace probe.
+files:
+  - 'src/**'
+rule:
+  pattern: console.log($$$A)

@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { circleWall, obbWall } from '../lib/camera'
 import { clamp, damp, lerp } from '../lib/math'
 import { notifyInput } from '../lib/input'
+import { settings } from '../lib/settings'
 import { HOUSE, MANSION, MILL, game, groundHeight, houseLocal, houseWorld, mansionLocal, mansionWorld } from '../lib/world'
 
 export function CameraRig() {
@@ -27,14 +28,15 @@ export function CameraRig() {
       notifyInput()
     }
     const move = (e: PointerEvent) => {
+      const st = settings.get()
       if (document.pointerLockElement === el) {
-        game.camYaw -= e.movementX * 0.0026
-        game.camPitch = clamp(game.camPitch + e.movementY * 0.0022, 0.08, 1.25)
+        game.camYaw -= e.movementX * 0.0026 * st.sensitivity
+        game.camPitch = clamp(game.camPitch + e.movementY * 0.0022 * st.sensitivity * (st.invertY ? -1 : 1), 0.08, 1.25)
         return
       }
       if (!dragging) return
-      game.camYaw -= (e.clientX - px) * 0.0052
-      game.camPitch = clamp(game.camPitch + (e.clientY - py) * 0.0045, 0.08, 1.25)
+      game.camYaw -= (e.clientX - px) * 0.0052 * st.sensitivity
+      game.camPitch = clamp(game.camPitch + (e.clientY - py) * 0.0045 * st.sensitivity * (st.invertY ? -1 : 1), 0.08, 1.25)
       px = e.clientX
       py = e.clientY
     }
@@ -160,7 +162,7 @@ export function CameraRig() {
 
     camera.position.copy(pos.current)
     camera.lookAt(look.current)
-    const targetFov = 55 + game.sprint * 8
+    const targetFov = settings.get().fov + game.sprint * 8
     if (Math.abs(camera.fov - targetFov) > 0.05) {
       camera.fov = damp(camera.fov, targetFov, 6, dt)
       camera.updateProjectionMatrix()

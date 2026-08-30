@@ -12,7 +12,7 @@ export function Well() {
     return g
   }, [])
   return (
-    <group position={[WELL.x, 0, WELL.z]}>
+    <group position={[WELL.x, 0, WELL.z]} userData={{ cullId: 'well' }}>
       <mesh castShadow receiveShadow position={[0, 0.39, 0]}>
         <cylinderGeometry args={[0.95, 1.05, 0.78, 12, 1, true]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} side={THREE.DoubleSide} />

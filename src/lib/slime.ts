@@ -1,10 +1,13 @@
 import { playSfx } from './audio'
 import { mulberry32 } from './math'
 import { spawnPickup } from './items'
+import { damagePlayer } from './health'
+import { inc } from './trace'
 import { COLLIDERS, FOUNTAIN, HOUSE, MANSION, POND, WELL, WINDMILL, WORLD_R, game, groundHeight, pathDistance } from './world'
 
 export const SLIME_SPAWN = { x: 2.6, z: 6.4 }
 export const SLIME_R = 0.45
+export const SLIME_MAX_HP = 3
 
 export type SlimeState = 'idle' | 'windup' | 'air' | 'hidden'
 
@@ -16,6 +19,8 @@ export const slime = {
   vz: 0,
   vy: 0,
   state: 'idle' as SlimeState,
+  maxHp: SLIME_MAX_HP,
+  hp: SLIME_MAX_HP,
   hits: 0,
   squish: 0,
   yaw: 0,
@@ -23,6 +28,8 @@ export const slime = {
   windT: 0,
   respawnT: 0,
 }
+
+export const slimeHud = { shown: true, frac: 1 }
 
 export const slimeCollider = { t: 'c' as const, x: slime.x, z: slime.z, r: SLIME_R }
 COLLIDERS.push(slimeCollider)
@@ -61,6 +68,8 @@ export function updateSlime(dt: number) {
       slime.x = SLIME_SPAWN.x
       slime.z = SLIME_SPAWN.z
       slime.y = groundHeight(slime.x, slime.z)
+      slime.maxHp = SLIME_MAX_HP
+      slime.hp = SLIME_MAX_HP
       slime.hits = 0
       slime.vx = 0
       slime.vz = 0
@@ -89,6 +98,7 @@ export function updateSlime(dt: number) {
     slime.x += (pdx / pd) * push
     slime.z += (pdz / pd) * push
     slime.squish = Math.max(slime.squish, 0.35)
+    damagePlayer(1, slime.x, slime.z)
   }
 
   if (slime.state === 'air') {
@@ -101,6 +111,9 @@ export function updateSlime(dt: number) {
       slime.state = 'idle'
       slime.squish = 1
       slime.idleT = 1.4 + rng() * 1.2
+      if (Math.hypot(game.x - slime.x, game.z - slime.z) < 1.35) {
+        damagePlayer(1, slime.x, slime.z, 4.2)
+      }
     }
   } else if (slime.state === 'windup') {
     slime.windT -= dt
@@ -144,7 +157,9 @@ export function applySlimeHit(px: number, pz: number, fx: number, fz: number): '
   const dot = (fx * dx + fz * dz) / (dist || 1)
   if (dot <= 0.5) return null
   slime.hits++
+  slime.hp = Math.max(0, slime.maxHp - slime.hits)
   slime.squish = 1
+  inc('slime.hit')
   const nx = dx / (dist || 1)
   const nz = dz / (dist || 1)
   slime.vx = nx * 4.5
@@ -152,7 +167,8 @@ export function applySlimeHit(px: number, pz: number, fx: number, fz: number): '
   if (slime.state === 'air') {
     slime.vy = Math.max(slime.vy, 1.2)
   }
-  if (slime.hits >= 3) {
+  if (slime.hp <= 0) {
+    inc('slime.pop')
     const n = 1 + Math.floor(rng() * 2)
     for (let i = 0; i < n; i++) {
       const a = rng() * Math.PI * 2

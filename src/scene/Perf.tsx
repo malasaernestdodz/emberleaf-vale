@@ -4,7 +4,7 @@ import { consumeEdge } from '../lib/input'
 import { LITE } from '../lib/flags'
 import { QUALITY_MAP, settings, useSettings } from '../lib/settings'
 import { TIERS, applyTier, perfStore } from '../lib/perf'
-import { endSys, frameStats, pushFrameMs, sysList, sysTick, trace, traceCtx } from '../lib/trace'
+import { endSys, frameStats, inc, metricsTick, pushFrameMs, setGauge, sysList, sysTick, trace, traceCtx } from '../lib/trace'
 import { game } from '../lib/world'
 
 const LOW_FPS = 45
@@ -26,6 +26,7 @@ export function Perf() {
   const highSecs = useRef(0)
   const secAcc = useRef(0)
   const sampleAcc = useRef(0)
+  const frames = useRef(0)
 
   // Re-apply resolution whenever quality, governor tier or manual mode changes.
   useEffect(() => {
@@ -44,6 +45,7 @@ export function Perf() {
     pushFrameMs(delta * 1000)
     traceCtx.fps = game.fps
     traceCtx.draws = game.drawCalls
+    frames.current++
 
     if (consumeEdge('KeyP')) {
       game.showPerf = !game.showPerf
@@ -52,13 +54,22 @@ export function Perf() {
 
     secAcc.current += delta
     if (secAcc.current >= 1) {
+      // Wall-clock fps: honest rate over the last second, immune to the
+      // delta-EMA being flattered by bursts between long stalls.
+      game.wallFps = frames.current / secAcc.current
+      frames.current = 0
       secAcc.current -= 1
       sysTick()
+      metricsTick()
       const f = frameStats()
       traceCtx.tier = perfStore.get().tier
+      setGauge('fps', Math.round(game.wallFps))
+      setGauge('draws', game.drawCalls)
+      setGauge('tris', game.tris)
+      setGauge('tier', perfStore.get().tier)
 
       if (perfStore.get().auto && !LITE && game.ready) {
-        if (game.fps < LOW_FPS) {
+        if (game.wallFps < LOW_FPS) {
           lowSecs.current++
           highSecs.current = 0
           if (lowSecs.current >= LOW_SECS_TO_STEP) {
@@ -67,12 +78,13 @@ export function Perf() {
             if (next !== perfStore.get().tier) {
               applyTier(next)
               traceCtx.tier = next
-              trace('governor', `fps ${Math.round(game.fps)} · frame p95 ${f.p95.toFixed(1)}ms · tier -> ${next}${topSystems()}`)
+              inc('governor.down')
+              trace('governor', `wall fps ${Math.round(game.wallFps)} · frame p95 ${f.p95.toFixed(1)}ms · tier -> ${next}${topSystems()}`)
             }
           } else {
-            trace('watchdog', `fps ${Math.round(game.fps)} low · p95 ${f.p95.toFixed(1)}ms · draws ${game.drawCalls} · tris ${game.tris}${topSystems()}`)
+            trace('watchdog', `wall fps ${Math.round(game.wallFps)} low · p95 ${f.p95.toFixed(1)}ms · draws ${game.drawCalls} · tris ${game.tris}${topSystems()}`)
           }
-        } else if (game.fps > HIGH_FPS) {
+        } else if (game.wallFps > HIGH_FPS) {
           highSecs.current++
           lowSecs.current = 0
           if (highSecs.current >= HIGH_SECS_TO_RECOVER) {
@@ -81,7 +93,8 @@ export function Perf() {
             if (next !== perfStore.get().tier) {
               applyTier(next)
               traceCtx.tier = next
-              trace('governor', `headroom (fps ${Math.round(game.fps)}) · tier -> ${next}`)
+              inc('governor.up')
+              trace('governor', `headroom (wall fps ${Math.round(game.wallFps)}) · tier -> ${next}`)
             }
           }
         } else {
@@ -96,7 +109,7 @@ export function Perf() {
       sampleAcc.current = 0
       const f = frameStats()
       const p = perfStore.get()
-      trace('frame', `fps ${Math.round(game.fps)} · p50 ${f.p50.toFixed(1)} / p95 ${f.p95.toFixed(1)}ms · draws ${game.drawCalls} · tris ${game.tris} · tier ${p.tier}${p.auto ? '' : ' (manual)'} · grass ${(p.grassScale * 100) | 0}%`)
+      trace('frame', `wall fps ${Math.round(game.wallFps)} · p50 ${f.p50.toFixed(1)} / p95 ${f.p95.toFixed(1)}ms · draws ${game.drawCalls} · tris ${game.tris} · tier ${p.tier}${p.auto ? '' : ' (manual)'} · grass ${(p.grassScale * 100) | 0}%`)
     }
 
     endSys('perf', t0)

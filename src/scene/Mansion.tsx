@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { smoothstep } from '../lib/math'
-import { MANSION, MANSION_SLAB_LZ, MANSION_STAIR } from '../lib/world'
+import { MANSION, MANSION_BALCONY, MANSION_DOOR, MANSION_SLAB_LZ, MANSION_STAIR, MANSION_STAIRWELL } from '../lib/world'
+import { buildDoorLeaf } from './door'
 import { getGlassMaterial, getNoiseNormalMap } from './textures'
 import { getToonRamp } from './toonRamp'
 
@@ -29,17 +30,28 @@ function tr(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) {
 const H = 9.3
 const F2 = MANSION.floor2
 const f1 = MANSION.floorY
+const BURY = 0.35
 const STAIR_MID_LX = (MANSION_STAIR.lx0 + MANSION_STAIR.lx1) / 2
 const STAIR_MID_LZ = (MANSION_STAIR.lz0 + MANSION_STAIR.lz1) / 2
 const STAIR_LEN = MANSION_STAIR.lx1 - MANSION_STAIR.lx0
 const SLOPE = Math.atan2(F2 - f1, STAIR_LEN)
 
 export function Mansion() {
-  const doorGeo = useMemo(() => {
-    const g = new THREE.BoxGeometry(1.76, 2.6, 0.1)
-    g.translate(0.88, 0, 0)
-    return g
-  }, [])
+  const doorGeo = useMemo(
+    () =>
+      buildDoorLeaf({ w: MANSION_DOOR.openW, h: MANSION_DOOR.openH, t: MANSION_DOOR.leafT, open: MANSION_DOOR.swing }),
+    []
+  )
+  const balcDoorGeo = useMemo(
+    () =>
+      buildDoorLeaf({
+        w: MANSION_BALCONY.doorHalfW * 2 - 0.16,
+        h: MANSION_BALCONY.doorH - 0.12,
+        t: 0.08,
+        open: 0.55,
+      }),
+    []
+  )
   const built = useMemo(() => {
     const buckets: Record<string, THREE.BufferGeometry[]> = {}
     const put = (k: string, g: THREE.BufferGeometry) => {
@@ -47,28 +59,43 @@ export function Mansion() {
     }
     const hw = MANSION.w / 2
     const hd = MANSION.d / 2
+    const wallH = H + BURY
+    const wallY = (H - BURY) / 2
 
-    put('wood', tr(new THREE.BoxGeometry(MANSION.w, 0.16, MANSION.d), 0, f1 - 0.08, 0))
+    put('wood', tr(new THREE.BoxGeometry(MANSION.w, 0.29, MANSION.d), 0, f1 - 0.145, 0))
 
-    put('plaster', tr(new THREE.BoxGeometry(5.7, H, 0.2), -4.65, H / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(7.5, H, 0.2), 3.75, H / 2, hd))
+    put('plaster', tr(new THREE.BoxGeometry(5.7, wallH, 0.2), -4.65, wallY, hd))
+    put('plaster', tr(new THREE.BoxGeometry(7.5, wallH, 0.2), 3.75, wallY, hd))
     put('plaster', tr(new THREE.BoxGeometry(1.8, H - 2.6, 0.2), -0.9, 2.6 + (H - 2.6) / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(MANSION.w, F2, 0.2), 0, F2 / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(MANSION.w, F2 + BURY, 0.2), 0, (F2 - BURY) / 2, -hd))
     put('plaster', tr(new THREE.BoxGeometry(6.55, H - F2, 0.2), -4.225, F2 + (H - F2) / 2, -hd))
-    put('plaster', tr(new THREE.BoxGeometry(6.55, H - F2, 0.2), 4.225, F2 + (H - F2) / 2, -hd))
-    put('plaster', tr(new THREE.BoxGeometry(1.9, H - F2 - 2.3, 0.2), 0, F2 + 2.3 + (H - F2 - 2.3) / 2, -hd))
-    put('plaster', tr(new THREE.BoxGeometry(0.2, H, MANSION.d), -hw, H / 2, 0))
-    put('plaster', tr(new THREE.BoxGeometry(0.2, H, MANSION.d), hw, H / 2, 0))
+    put('plaster', tr(new THREE.BoxGeometry(1.9, H - F2, 0.2), 0, F2 + (H - F2) / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(2.9, H - F2, 0.2), 2.4, F2 + (H - F2) / 2, -hd))
+    put(
+      'plaster',
+      tr(
+        new THREE.BoxGeometry(
+          MANSION_BALCONY.doorHalfW * 2,
+          H - F2 - MANSION_BALCONY.doorH,
+          0.2
+        ),
+        MANSION_BALCONY.doorLX,
+        F2 + MANSION_BALCONY.doorH + (H - F2 - MANSION_BALCONY.doorH) / 2,
+        -hd
+      )
+    )
+    put('plaster', tr(new THREE.BoxGeometry(2.15, H - F2, 0.2), 6.425, F2 + (H - F2) / 2, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(0.2, wallH, MANSION.d), -hw, wallY, 0))
+    put('plaster', tr(new THREE.BoxGeometry(0.2, wallH, MANSION.d), hw, wallY, 0))
 
     for (const [px, pz] of [
       [-hw, -hd],
       [hw, -hd],
       [-hw, hd],
       [hw, hd],
-      [-1.8, hd],
-      [0, hd],
+      ...MANSION_DOOR.jambPosts.map((jx) => [jx, hd] as [number, number]),
     ]) {
-      put('timber', tr(new THREE.BoxGeometry(0.3, H + 0.05, 0.3), px, (H + 0.05) / 2, pz))
+      put('timber', tr(new THREE.BoxGeometry(0.3, wallH + 0.05, 0.3), px, wallY + 0.025, pz))
     }
     for (const y of [F2 + 0.12, 6.8, H]) {
       put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.3, 0.24, 0.28), 0, y, hd))
@@ -110,7 +137,7 @@ export function Mansion() {
     addWin(-3.6, 5.8, hd + 0.1, 0)
     addWin(3.6, 5.8, hd + 0.1, 0)
     addWin(-4.5, 5.2, -hd - 0.1, Math.PI)
-    addWin(4.5, 5.2, -hd - 0.1, Math.PI)
+    addWin(6.45, 5.2, -hd - 0.1, Math.PI)
     addWin(-hw - 0.1, 1.9, 2.5, -Math.PI / 2)
     addWin(-hw - 0.1, 5.2, -2.5, -Math.PI / 2)
     addWin(hw + 0.1, 1.9, 2.5, Math.PI / 2)
@@ -124,7 +151,10 @@ export function Mansion() {
     }
     put('roof', new THREE.LatheGeometry(roofPts, 4).rotateY(Math.PI / 4))
 
-    put('wood', tr(new THREE.BoxGeometry(14.8, 0.15, 4.1), 0, F2 - 0.075, -3.95))
+    const sw = MANSION_STAIRWELL
+    put('wood', tr(new THREE.BoxGeometry(MANSION.w, 0.15, MANSION_SLAB_LZ - sw.lz1), 0, F2 - 0.075, (MANSION_SLAB_LZ + sw.lz1) / 2))
+    put('wood', tr(new THREE.BoxGeometry(hw - sw.lx1, 0.15, sw.lz1 - sw.lz0), (hw + sw.lx1) / 2, F2 - 0.075, (sw.lz0 + sw.lz1) / 2))
+    put('wood', tr(new THREE.BoxGeometry(sw.lx0 + hw, 0.15, sw.lz1 - sw.lz0), (sw.lx0 - hw) / 2, F2 - 0.075, (sw.lz0 + sw.lz1) / 2))
 
     put('blue', tr(new THREE.CircleGeometry(2.0, 26).rotateX(-Math.PI / 2), 0, f1 + 0.015, 1.5))
     put('gold', tr(new THREE.CircleGeometry(1.3, 26).rotateX(-Math.PI / 2), 0, f1 + 0.02, 1.5))
@@ -177,18 +207,27 @@ export function Mansion() {
     under.rotateZ(SLOPE)
     under.translate(STAIR_MID_LX, (f1 + F2) / 2 - 0.14, STAIR_MID_LZ)
     put('wood', under)
-    const rail = new THREE.BoxGeometry(rampLen + 0.4, 0.14, 0.09)
+    const railLen = sw.lx1 - sw.lx0 + 0.4
+    const rail = new THREE.BoxGeometry(railLen, 0.14, 0.09)
     rail.rotateZ(SLOPE)
-    rail.translate(STAIR_MID_LX, (f1 + F2) / 2 + 1.15, MANSION_STAIR.lz1 + 0.13)
+    rail.translate((sw.lx0 + sw.lx1) / 2, F2 + 1.0 - (railLen / 2) * Math.sin(SLOPE), MANSION_STAIR.lz1 + 0.05)
     put('timber', rail)
-    const railPost = new THREE.BoxGeometry(STAIR_LEN, F2 - f1 + 1.0, 0.14)
-    railPost.translate(STAIR_MID_LX, f1 + (F2 - f1 + 1.0) / 2, MANSION_STAIR.lz1 + 0.07)
+    const railPost = new THREE.BoxGeometry(sw.lx1 - sw.lx0, F2 - f1 + 1.0, 0.14)
+    railPost.translate((sw.lx0 + sw.lx1) / 2, f1 + (F2 - f1 + 1.0) / 2, MANSION_STAIR.lz1 + 0.07)
     put('wood', railPost)
+    put('timber', tr(new THREE.BoxGeometry(0.14, 1.0, 0.14), MANSION_STAIR.lx1, F2 + 0.5, MANSION_STAIR.lz1 + 0.05))
+    put('timber', tr(new THREE.BoxGeometry(0.14, 2.4, 0.14), sw.lx0 - 0.15, f1 + 1.2, MANSION_STAIR.lz1 + 0.05))
+    put('wood', tr(new THREE.BoxGeometry(0.16, 1.0, sw.lz1 - sw.lz0), sw.lx0 - 0.07, F2 + 0.5, (sw.lz0 + sw.lz1) / 2))
+    put('timber', tr(new THREE.BoxGeometry(0.26, 0.1, sw.lz1 - sw.lz0 + 0.1), sw.lx0 - 0.07, F2 + 1.02, (sw.lz0 + sw.lz1) / 2))
 
     put('wood', tr(new THREE.BoxGeometry(MANSION.w, 1.0, 0.16), 0, F2 + 0.5, MANSION_SLAB_LZ))
     put('timber', tr(new THREE.BoxGeometry(MANSION.w + 0.1, 0.1, 0.26), 0, F2 + 1.02, MANSION_SLAB_LZ))
 
     put('wood', tr(new THREE.BoxGeometry(3.6, 0.15, 1.5), 4.6, F2 - 0.075, -6.75))
+    put('timber', tr(new THREE.BoxGeometry(0.16, MANSION_BALCONY.doorH, 0.26), MANSION_BALCONY.doorLX - MANSION_BALCONY.doorHalfW + 0.08, F2 + MANSION_BALCONY.doorH / 2, -hd - 0.02))
+    put('timber', tr(new THREE.BoxGeometry(0.16, MANSION_BALCONY.doorH, 0.26), MANSION_BALCONY.doorLX + MANSION_BALCONY.doorHalfW - 0.08, F2 + MANSION_BALCONY.doorH / 2, -hd - 0.02))
+    put('timber', tr(new THREE.BoxGeometry(MANSION_BALCONY.doorHalfW * 2 + 0.32, 0.18, 0.26), MANSION_BALCONY.doorLX, F2 + MANSION_BALCONY.doorH + 0.09, -hd - 0.02))
+    put('wood', tr(new THREE.BoxGeometry(MANSION_BALCONY.doorHalfW * 2 - 0.1, 0.07, 0.6), MANSION_BALCONY.doorLX, F2 + 0.035, -hd))
     put('timber', tr(new THREE.BoxGeometry(3.6, 1.0, 0.14), 4.6, F2 + 0.5, -7.45))
     put('timber', tr(new THREE.BoxGeometry(0.14, 1.0, 1.5), 6.25, F2 + 0.5, -6.75))
     put('timber', tr(new THREE.BoxGeometry(0.14, 1.0, 1.5), 2.95, F2 + 0.5, -6.75))
@@ -241,7 +280,7 @@ export function Mansion() {
     }
 
     const px0 = -1.8
-    put('wood', tr(new THREE.BoxGeometry(4.2, 0.12, 2.3), px0, 0.06, hd + 1.05))
+    put('wood', tr(new THREE.BoxGeometry(4.2, 0.18, 2.3), px0, 0.03, hd + 1.05))
     put('stone', tr(new THREE.BoxGeometry(2.7, 0.1, 0.55), px0, 0.05, hd + 2.4))
     put('stone', tr(new THREE.BoxGeometry(2.3, 0.1, 0.5), px0, 0.15, hd + 2.28))
     for (const [cx, cz] of [
@@ -254,9 +293,15 @@ export function Mansion() {
       put('gold', tr(new THREE.BoxGeometry(0.36, 0.1, 0.36), cx, 3.28, cz))
     }
     put('wood', tr(new THREE.BoxGeometry(4.1, 0.26, 2.25), px0, 3.42, hd + 1.05))
-    put('timber', tr(new THREE.BoxGeometry(0.16, 2.7, 0.16), px0 - 0.98, 1.35, hd + 0.1))
-    put('timber', tr(new THREE.BoxGeometry(0.16, 2.7, 0.16), px0 + 0.98, 1.35, hd + 0.1))
-    put('timber', tr(new THREE.BoxGeometry(2.3, 0.18, 0.16), px0, 2.8, hd + 0.1))
+    put(
+      'timber',
+      tr(
+        new THREE.BoxGeometry(MANSION_DOOR.openW + 0.36, 0.18, 0.16),
+        (MANSION_DOOR.hingeLX * 2 + MANSION_DOOR.openW) / 2,
+        MANSION_DOOR.lintelY,
+        MANSION_DOOR.frameZ
+      )
+    )
     put('wood', tr(new THREE.BoxGeometry(4.3, 0.14, 2.4), px0, F2 + 0.07, hd + 1.0))
     put('wood', tr(new THREE.BoxGeometry(4.3, 0.1, 0.14), px0, F2 + 0.98, hd + 2.1))
     put('wood', tr(new THREE.BoxGeometry(4.3, 0.09, 0.12), px0, F2 + 0.34, hd + 2.12))
@@ -320,7 +365,7 @@ export function Mansion() {
   const glass = useMemo(() => getGlassMaterial(), [])
 
   return (
-    <group position={[MANSION.x, 0, MANSION.z]} rotation={[0, MANSION.yaw, 0]}>
+    <group position={[MANSION.x, 0, MANSION.z]} rotation={[0, MANSION.yaw, 0]} userData={{ cullId: 'mansion' }}>
       {built.map(({ key, geo }) => (
         <mesh
           key={key}
@@ -330,7 +375,14 @@ export function Mansion() {
           receiveShadow={key !== 'glass'}
         />
       ))}
-      <mesh geometry={doorGeo} position={[-1.8, 1.3, MANSION.d / 2 + 0.12]} rotation-y={1.5} castShadow>
+      <mesh geometry={doorGeo} position={[MANSION_DOOR.hingeLX, 0, MANSION_DOOR.leafZ]} castShadow>
+        <meshToonMaterial color="#6b4a2f" gradientMap={getToonRamp()} />
+      </mesh>
+      <mesh
+        geometry={balcDoorGeo}
+        position={[MANSION_BALCONY.doorLX - MANSION_BALCONY.doorHalfW + 0.08, F2 + 0.03, -MANSION.d / 2 - 0.1]}
+        castShadow
+      >
         <meshToonMaterial color="#6b4a2f" gradientMap={getToonRamp()} />
       </mesh>
       <pointLight position={[0, 4.8, 1.5]} intensity={16} distance={12} decay={2} color="#ffd9a0" />

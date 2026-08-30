@@ -9,7 +9,8 @@ import { colliderBlocks, colliderDims } from './lib/collide'
 import { SLOT_LABELS, SLOT_TYPES, inv, selected, type Item } from './lib/items'
 import { quests, questsDone } from './lib/quests'
 import { COLLIDERS, game, groundHeight } from './lib/world'
-import { frameStats, getEvents, sysList } from './lib/trace'
+import { health } from './lib/health'
+import { frameStats, getEvents, metricsList, sysList } from './lib/trace'
 import { World } from './scene/World'
 
 type NearCol = {
@@ -39,12 +40,21 @@ type Stats = {
   fishing: boolean
   bite: boolean
   showCol: boolean
+  colSolid: boolean
   showPerf: boolean
+  showFps: boolean
+  cullVisible: number
+  cullTotal: number
   tier: number
   autoTune: boolean
   dpr: number
   colCount: number
   nearCol: NearCol | null
+  hp: number
+  maxHp: number
+  hurt: number
+  fainted: boolean
+  faintVeil: number
 }
 
 type QuestView = { id: string; title: string; desc: string; progress: number; target: number; done: boolean }
@@ -124,7 +134,11 @@ function PerfPanel() {
         </button>
       </div>
       <div className="dp-row">
-        fps {Math.round(game.fps)} · draws {game.drawCalls} · tris {game.tris} · dpr {perfStore.get().dprScale.toFixed(2)}×
+        fps {Math.round(game.fps)} (wall {Math.round(game.wallFps)}) · draws {game.drawCalls} · tris{' '}
+        {game.tris} · dpr {perfStore.get().dprScale.toFixed(2)}×
+      </div>
+      <div className="dp-row">
+        culled {game.cullTotal - game.cullVisible}/{game.cullTotal} beyond render distance
       </div>
       <div className="dp-row">
         frame ms p50 {f.p50.toFixed(1)} · p95 {f.p95.toFixed(1)} · max {f.max.toFixed(1)}
@@ -139,6 +153,18 @@ function PerfPanel() {
         .map((s) => (
           <div className="dp-row" key={s.name}>
             {s.name.padEnd(11, '\u00a0')} {s.ema.toFixed(2)}ms (max {s.max.toFixed(1)})
+          </div>
+        ))}
+      <div className="dp-title" style={{ marginTop: 6 }}>
+        METRICS
+      </div>
+      {metricsList().length === 0 && <div className="dp-row dim">no counters yet</div>}
+      {metricsList()
+        .slice(0, 12)
+        .map((m) => (
+          <div className="dp-row" key={m.name} data-testid={`metric-${m.name.replace(/[^a-z0-9.]/gi, '-')}`}>
+            {m.name.padEnd(14, '\u00a0')} {m.perSec > 0 ? `${m.perSec.toFixed(1)}/s · ` : ''}
+            {Math.round(m.total)}
           </div>
         ))}
       <div className="dp-title" style={{ marginTop: 6 }}>
@@ -173,12 +199,21 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
     fishing: false,
     bite: false,
     showCol: false,
+    colSolid: false,
     showPerf: false,
+    showFps: LITE,
+    cullVisible: 0,
+    cullTotal: 0,
     tier: 0,
     autoTune: !LITE,
     dpr: 1,
     colCount: COLLIDERS.length,
     nearCol: null,
+    hp: 5,
+    maxHp: 5,
+    hurt: 0,
+    fainted: false,
+    faintVeil: 0,
   })
   const [questView, setQuestView] = useState<QuestView[]>([])
   const [doneCount, setDoneCount] = useState(0)
@@ -193,7 +228,7 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
     const id = window.setInterval(() => {
       let nearCol: NearCol | null = null
       let nearestAny: NearCol | null = null
-      if (game.showColliders) {
+      if (game.showColliders || game.colliderSolid) {
         for (let i = 0; i < COLLIDERS.length; i++) {
           const c = COLLIDERS[i]
           const rec: NearCol = {
@@ -216,7 +251,7 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
         x: game.x,
         y: game.y,
         z: game.z,
-        gh: game.showColliders ? groundHeight(game.x, game.z, game.y) : 0,
+        gh: game.showColliders || game.colliderSolid ? groundHeight(game.x, game.z, game.y) : 0,
         inside: game.inside,
         nearLabel: game.nearLabel,
         veil: game.sleepVeil,
@@ -228,12 +263,21 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
         fishing: game.fishing,
         bite: game.bite,
         showCol: game.showColliders,
+        colSolid: game.colliderSolid,
         showPerf: game.showPerf,
+        showFps: settings.get().showFps,
+        cullVisible: game.cullVisible,
+        cullTotal: game.cullTotal,
         tier: perf.tier,
         autoTune: perf.auto,
         dpr: perf.dprScale,
         colCount: COLLIDERS.length,
         nearCol,
+        hp: health.hp,
+        maxHp: health.maxHp,
+        hurt: health.hurtT,
+        fainted: health.fainted,
+        faintVeil: health.faintVeil,
       })
       setQuestView(quests.map((q) => ({ id: q.id, title: q.title, desc: q.desc, progress: q.progress, target: q.target, done: q.done })))
       setDoneCount(questsDone())
@@ -264,8 +308,12 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
       <div className="hud">
         <h1>EMBERLEAF VALE</h1>
         <div className="row">
-          x {stats.x.toFixed(1)} · y {stats.y.toFixed(2)} · z {stats.z.toFixed(1)} · {stats.fps} fps ·{' '}
-          {stats.drawCalls} draws
+          x {stats.x.toFixed(1)} · y {stats.y.toFixed(2)} · z {stats.z.toFixed(1)}
+          {stats.showFps && (
+            <>
+              {' '}· {stats.fps} fps · {stats.drawCalls} draws · {stats.cullVisible}/{stats.cullTotal} drawn
+            </>
+          )}
         </div>
         {stats.inside && <span className="badge">HOME SWEET HOME</span>}
         <div>
@@ -274,16 +322,25 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
             onClick={() => (game.showColliders = !game.showColliders)}
           >
             [C] collider debug {stats.showCol ? 'on' : 'off'}
+          </button>{' '}
+          <button
+            className={stats.colSolid ? 'collider-badge on' : 'collider-badge'}
+            onClick={() => (game.colliderSolid = !game.colliderSolid)}
+          >
+            [V] solid shapes {stats.colSolid ? 'on' : 'off'}
           </button>
         </div>
       </div>
       {stats.showPerf && !menuOpen && <PerfPanel />}
-      {stats.showCol && !menuOpen && (
+      {(stats.showCol || stats.colSolid) && !menuOpen && (
         <div className="debug-panel">
           <div className="dp-title">
             COLLIDER DEBUG
-            <button className="dp-btn" onClick={() => (game.showColliders = false)}>
-              hide [C]
+            <button className="dp-btn" onClick={() => {
+              game.showColliders = false
+              game.colliderSolid = false
+            }}>
+              hide [C]/[V]
             </button>
           </div>
           <div className="dp-row">
@@ -305,7 +362,8 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
           )}
           <div className="dp-row dim">
             {stats.colCount} colliders · labels within 6 m · white = your capsule (r 0.32 h 1.55) ·
-            bright = blocks you now · pink = raised (y0 &gt; 0) · dim = pass-through
+            bright = blocks you now · pink = raised (y0 &gt; 0) · dim = pass-through ·{' '}
+            {stats.colSolid ? 'solid shape overlays on ([V])' : 'press [V] for solid shape overlays'}
           </div>
         </div>
       )}
@@ -314,7 +372,7 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
           Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
           <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
           <kbd>G</kbd> throw · <kbd>1-6</kbd> items · left-click attack · <kbd>Esc</kbd> menu ·{' '}
-          <kbd>C</kbd> collider debug · <kbd>P</kbd> perf trace · scroll to zoom
+          <kbd>C</kbd> collider debug · <kbd>V</kbd> solid collider shapes · <kbd>P</kbd> perf trace · scroll to zoom
         </div>
       </div>
       {stats.locked && !hudHidden && <div className="crosshair" />}
@@ -326,6 +384,30 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
       <div className="veil" style={{ opacity: stats.veil }}>
         {stats.veil > 0.95 && <div className="veil-text">Sleeping…</div>}
       </div>
+      <div className="veil faint" style={{ opacity: stats.faintVeil }}>
+        {stats.faintVeil > 0.95 && <div className="veil-text">You fainted…</div>}
+      </div>
+      <div className="hurt-veil" style={{ opacity: Math.min(stats.hurt, 1) * 0.85 }} />
+      {!hudHidden && !stats.fainted && (
+        <div className={stats.hurt > 0.05 ? 'hearts hurt' : 'hearts'} data-testid="player-hearts">
+          <span className="hearts-label">VITALITY</span>
+          <span className="hearts-row">
+            {Array.from({ length: stats.maxHp }, (_, i) => (
+              <svg
+                key={i}
+                className={i < stats.hp ? 'heart' : 'heart empty'}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path d="M12 20.6 C7.2 16.4 3.6 13 3.6 9.3 A4.7 4.7 0 0 1 12 6.5 A4.7 4.7 0 0 1 20.4 9.3 C20.4 13 16.8 16.4 12 20.6 Z" />
+              </svg>
+            ))}
+          </span>
+          <span className="hearts-count" data-testid="player-hp">
+            {stats.hp}/{stats.maxHp}
+          </span>
+        </div>
+      )}
       {stats.book && (
         <div className="book">
           <h2>The Keeper's Ledger</h2>
@@ -461,6 +543,51 @@ function MenuCard({ onClose }: { onClose: () => void }) {
         >
           Test sound
         </button>
+        <div className="menu-section">World</div>
+        <label className="menu-row">
+          <span>Render distance</span>
+          <input
+            className="menu-slider"
+            data-testid="render-distance"
+            type="range"
+            min={40}
+            max={220}
+            step={10}
+            value={st.renderDistance}
+            onChange={(e) => {
+              settings.set({ renderDistance: Number(e.target.value) })
+            }}
+          />
+          <span className="menu-pct" data-testid="render-distance-value">
+            {st.renderDistance} m
+          </span>
+        </label>
+        <label className="menu-row">
+          <span>Distance fog</span>
+          <input
+            className="menu-check"
+            data-testid="fog-toggle"
+            type="checkbox"
+            checked={st.showFog}
+            onChange={(e) => {
+              settings.set({ showFog: e.target.checked })
+              playSfx('click')
+            }}
+          />
+        </label>
+        <label className="menu-row">
+          <span>Grass</span>
+          <input
+            className="menu-check"
+            data-testid="grass-toggle"
+            type="checkbox"
+            checked={st.showGrass}
+            onChange={(e) => {
+              settings.set({ showGrass: e.target.checked })
+              playSfx('click')
+            }}
+          />
+        </label>
         <div className="menu-section">Graphics</div>
         <label className="menu-row">
           <span>Quality</span>
@@ -499,6 +626,68 @@ function MenuCard({ onClose }: { onClose: () => void }) {
           Auto-tune drops resolution, bloom and grass density when fps dips, and restores them when
           there is headroom. [P] opens the perf trace.
         </p>
+        <label className="menu-row">
+          <span>Field of view</span>
+          <input
+            className="menu-slider"
+            data-testid="fov"
+            type="range"
+            min={40}
+            max={90}
+            value={st.fov}
+            onChange={(e) => {
+              settings.set({ fov: Number(e.target.value) })
+            }}
+          />
+          <span className="menu-pct" data-testid="fov-value">
+            {st.fov}°
+          </span>
+        </label>
+        <label className="menu-row">
+          <span>Show FPS</span>
+          <input
+            className="menu-check"
+            data-testid="show-fps"
+            type="checkbox"
+            checked={st.showFps}
+            onChange={(e) => {
+              settings.set({ showFps: e.target.checked })
+              playSfx('click')
+            }}
+          />
+        </label>
+        <div className="menu-section">Controls</div>
+        <label className="menu-row">
+          <span>Look sensitivity</span>
+          <input
+            className="menu-slider"
+            data-testid="sensitivity"
+            type="range"
+            min={0.3}
+            max={2}
+            step={0.1}
+            value={st.sensitivity}
+            onChange={(e) => {
+              settings.set({ sensitivity: Number(e.target.value) })
+            }}
+          />
+          <span className="menu-pct" data-testid="sensitivity-value">
+            {st.sensitivity.toFixed(1)}×
+          </span>
+        </label>
+        <label className="menu-row">
+          <span>Invert look Y</span>
+          <input
+            className="menu-check"
+            data-testid="invert-y"
+            type="checkbox"
+            checked={st.invertY}
+            onChange={(e) => {
+              settings.set({ invertY: e.target.checked })
+              playSfx('click')
+            }}
+          />
+        </label>
         <button className="menu-btn primary" data-testid="resume" onClick={onClose}>
           Back to the vale
         </button>
@@ -565,7 +754,7 @@ export default function App() {
       <Canvas
         shadows={!LITE}
         dpr={dpr}
-        gl={{ antialias: !LITE, powerPreference: 'high-performance' }}
+        gl={{ antialias: !LITE, powerPreference: 'high-performance', preserveDrawingBuffer: LITE }}
         camera={{ fov: 55, near: 0.1, far: 420, position: [8, 7, 26] }}
       >
         {world}

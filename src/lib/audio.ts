@@ -42,21 +42,33 @@ export const audio = {
   sfx: true,
   ambience: true,
   prev: 0.8,
+  last: '' as SfxName | '',
+}
+
+{
+  const s = settings.get()
+  audio.master = s.master
+  audio.prev = Math.max(s.master, 0.8)
+  audio.sfx = s.sfx > 0
+  audio.ambience = s.music > 0
 }
 
 export function setMaster(v: number) {
   audio.master = Math.min(1, Math.max(0, v))
   if (audio.master > 0) audio.prev = audio.master
+  settings.set({ master: audio.master, muted: audio.master <= 0 })
   applyVolumes()
 }
 
 export function setSfx(on: boolean) {
   audio.sfx = on
+  settings.set({ sfx: on ? Math.max(settings.get().sfx, 0.9) : 0 })
   applyVolumes()
 }
 
 export function setAmbience(on: boolean) {
   audio.ambience = on
+  settings.set({ music: on ? Math.max(settings.get().music, 0.55) : 0 })
   applyVolumes()
   if (on) {
     startWind()
@@ -71,6 +83,7 @@ export function audioSnapshot() {
     sfx: audio.sfx,
     ambience: audio.ambience,
     muted: audio.master <= 0,
+    last: audio.last,
     unlocked: ctx !== null && ctx.state === 'running',
   }
 }
@@ -213,10 +226,12 @@ export type SfxName =
   | 'hit'
   | 'pop'
   | 'hop'
+  | 'hurt'
 
 const vary = (amount: number) => 1 + (rng() - 0.5) * 2 * amount
 
 export function playSfx(name: SfxName) {
+  audio.last = name
   switch (name) {
     case 'step':
       noise('lowpass', 900 * vary(0.3), 300, 0.8, 0.09, 0.1)
@@ -321,6 +336,10 @@ export function playSfx(name: SfxName) {
       break
     case 'hop':
       tone(280, 520, 0.1, 'sine', 0.12)
+      break
+    case 'hurt':
+      tone(220, 110, 0.16, 'square', 0.24)
+      noise('lowpass', 1200, 300, 0.7, 0.12, 0.18)
       break
   }
 }

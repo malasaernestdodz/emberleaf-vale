@@ -1,4 +1,5 @@
 import { COLLIDERS, type Collider } from './world'
+import { inc } from './trace'
 
 export const PLAYER_H = 1.55
 
@@ -16,9 +17,12 @@ export function colliderDims(c: Collider): string {
   return `BOX ${(c.hw * 2).toFixed(2)}×${(c.hd * 2).toFixed(2)} h${h}`
 }
 
+let pushes = 0
+
 export function resolveCollisions(px: number, pz: number, r: number, feetY: number): [number, number] {
   let x = px
   let z = pz
+  pushes = 0
   for (let pass = 0; pass < 3; pass++) {
     for (const c of COLLIDERS) {
       const y0 = c.y0 ?? 0
@@ -33,10 +37,12 @@ export function resolveCollisions(px: number, pz: number, r: number, feetY: numb
         if (d < m) {
           if (d < 1e-6) {
             x = c.x + m
+            pushes++
             continue
           }
           x = c.x + (dx / d) * m
           z = c.z + (dz / d) * m
+          pushes++
         }
       } else {
         const cos = Math.cos(c.yaw)
@@ -54,9 +60,11 @@ export function resolveCollisions(px: number, pz: number, r: number, feetY: numb
           else nlz = lz + Math.sign(lz || 1) * oz
           x = c.x + nlx * cos + nlz * sin
           z = c.z - nlx * sin + nlz * cos
+          pushes++
         }
       }
     }
   }
+  if (pushes > 0) inc('collide.push', pushes)
   return [x, z]
 }

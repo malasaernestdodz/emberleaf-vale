@@ -1,0 +1,14 @@
+id: metrics-need-literal-names
+language: TypeScript
+severity: error
+message: inc()/setGauge() metric names must be string literals so the HUD panel, probes and e2e tests can pin exact counters.
+note: See openspec observability spec (metric names are a stable contract).
+files:
+  - 'src/**'
+rule:
+  any:
+    - pattern: inc($NAME)
+    - pattern: setGauge($NAME, $$$REST)
+constraints:
+  NAME:
+    kind: identifier

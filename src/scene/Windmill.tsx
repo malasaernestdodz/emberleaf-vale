@@ -38,10 +38,11 @@ export function Windmill() {
     const parts: THREE.BufferGeometry[] = []
     for (let k = 0; k < STEPS; k++) {
       const phi = MILL.doorPhi + ((k + 0.5) / STEPS) * MILL_ARC
-      const y = MILL.base + 0.02 + ((phi - MILL.doorPhi) / MILL_ARC) * (MILL.top - 0.02)
-      const g = new THREE.BoxGeometry(1.3, 0.1, STEP_W)
+      const y =
+        MILL.floorH + 0.02 + ((phi - MILL.doorPhi) / MILL_ARC) * (MILL.top - MILL.floorH - 0.02)
+      const g = new THREE.BoxGeometry(1.3, 0.42, STEP_W)
       g.rotateY(Math.PI - phi)
-      g.translate(-Math.sin(phi) * STEP_R, y - 0.05, Math.cos(phi) * STEP_R)
+      g.translate(-Math.sin(phi) * STEP_R, y - 0.21, Math.cos(phi) * STEP_R)
       parts.push(g)
     }
     return mergeGeometries(parts, false)!
@@ -62,7 +63,7 @@ export function Windmill() {
   const doorPostX = Math.sin(doorHalf) * (MILL.rWall + 0.12)
   const doorPostZ = Math.cos(doorHalf) * (MILL.rWall + 0.12)
   return (
-    <group position={[WINDMILL.x, WINDMILL_Y, WINDMILL.z]} rotation={[0, MILL.yaw, 0]}>
+    <group position={[WINDMILL.x, WINDMILL_Y, WINDMILL.z]} rotation={[0, MILL.yaw, 0]} userData={{ cullId: 'windmill' }}>
       <mesh castShadow receiveShadow position={[0, 0.6, 0]}>
         <cylinderGeometry args={[5.7, 6.1, 1.2, 26]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} />
@@ -71,21 +72,17 @@ export function Windmill() {
         <cylinderGeometry args={[WALL_TOP_R, 5.5, WALL_H, 30, 1, true, doorHalf, Math.PI * 2 - doorHalf * 2]} />
         <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 0.03, 0]} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[4.5, 40]} />
+      <mesh castShadow position={[0, MILL.floorH + 0.03, 0]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[4.6, 40]} />
         <meshToonMaterial color="#7a5b3a" gradientMap={ramp} />
       </mesh>
-      <mesh castShadow position={[0, 0.25, 0]}>
-        <cylinderGeometry args={[0.95, 1.04, 0.5, 16]} />
+      <mesh castShadow position={[0, MILL.step1Top / 2, 6.025]}>
+        <boxGeometry args={[2.7, MILL.step1Top, 0.65]} />
         <meshToonMaterial color="#8d8578" gradientMap={ramp} />
       </mesh>
-      <mesh position={[0, 0.505, 0]} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[0.93, 16]} />
-        <meshToonMaterial color="#5d4430" gradientMap={ramp} />
-      </mesh>
-      <mesh castShadow position={[0, 0.57, 0]}>
-        <cylinderGeometry args={[0.72, 0.77, 0.13, 14]} />
-        <meshToonMaterial color="#9a958c" gradientMap={ramp} />
+      <mesh castShadow position={[0, MILL.step2Top / 2, 6.675]}>
+        <boxGeometry args={[2.7, MILL.step2Top, 0.65]} />
+        <meshToonMaterial color="#8d8578" gradientMap={ramp} />
       </mesh>
       <mesh castShadow position={[0, 7.35, 0]}>
         <cylinderGeometry args={[0.35, 0.4, 13.7, 12]} />

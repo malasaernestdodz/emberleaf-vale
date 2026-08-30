@@ -1,0 +1,11 @@
+id: cull-visibility-single-writer
+language: TypeScript
+severity: error
+message: Cullable object visibility is written only by lib/cull updateCulling — libs must not toggle .visible.
+note: See openspec culling-system spec (single writer for distance culling).
+files:
+  - 'src/lib/**'
+ignores:
+  - 'src/lib/cull.ts'
+rule:
+  pattern: $OBJ.visible = $V

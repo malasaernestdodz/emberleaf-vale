@@ -1,0 +1,10 @@
+id: no-hardcoded-grass-cutoff
+language: TypeScript
+severity: error
+message: Grass distance cutoff must come from the uCull uniform (settings.renderDistance), not a literal.
+note: See openspec culling-system spec (grass cutoff follows render distance).
+files:
+  - 'src/scene/Grass.tsx'
+rule:
+  kind: number
+  regex: '^74\.0$'

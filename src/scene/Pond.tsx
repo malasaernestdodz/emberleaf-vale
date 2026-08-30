@@ -76,7 +76,7 @@ export function Pond() {
 
   const ramp = getToonRamp()
   return (
-    <>
+    <group userData={{ cullId: 'pond' }}>
       <mesh rotation-x={-Math.PI / 2} position={[POND.x, -0.08, POND.z]} material={water}>
         <circleGeometry args={[POND.r - 0.4, 48]} />
       </mesh>
@@ -86,6 +86,6 @@ export function Pond() {
       <mesh geometry={lotusGeo}>
         <meshToonMaterial color="#e89ab8" gradientMap={ramp} />
       </mesh>
-    </>
+    </group>
   )
 }

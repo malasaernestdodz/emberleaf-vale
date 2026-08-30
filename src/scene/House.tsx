@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { smoothstep } from '../lib/math'
-import { HOUSE } from '../lib/world'
+import { HOUSE, HOUSE_DOOR, HOUSE_ROOF_PROFILE } from '../lib/world'
+import { buildDoorLeaf } from './door'
 import { getGlassMaterial, getNoiseNormalMap } from './textures'
 import { getToonRamp } from './toonRamp'
 
@@ -18,6 +18,8 @@ const COLORS: Record<string, string> = {
   blue: '#4a7a9e',
   green: '#7a9e6a',
 }
+
+const BURY = 0.35
 
 function tr(g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) {
   if (ry) g.rotateY(ry)
@@ -36,14 +38,16 @@ export function House() {
     const H = HOUSE.h
     const dw = HOUSE.doorW / 2
     const lx = HOUSE.doorLX
+    const wallH = H + BURY
+    const wallY = (H - BURY) / 2
 
     const leftSegW = lx - dw + hw
     const rightSegW = hw - (lx + dw)
-    put('plaster', tr(new THREE.BoxGeometry(leftSegW, H, 0.18), -hw + leftSegW / 2, H / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(rightSegW, H, 0.18), lx + dw + rightSegW / 2, H / 2, hd))
-    put('plaster', tr(new THREE.BoxGeometry(HOUSE.w, H, 0.18), 0, H / 2, -hd))
-    put('plaster', tr(new THREE.BoxGeometry(0.18, H, HOUSE.d), -hw, H / 2, 0))
-    put('plaster', tr(new THREE.BoxGeometry(0.18, H, HOUSE.d), hw, H / 2, 0))
+    put('plaster', tr(new THREE.BoxGeometry(leftSegW, wallH, 0.18), -hw + leftSegW / 2, wallY, hd))
+    put('plaster', tr(new THREE.BoxGeometry(rightSegW, wallH, 0.18), lx + dw + rightSegW / 2, wallY, hd))
+    put('plaster', tr(new THREE.BoxGeometry(HOUSE.w, wallH, 0.18), 0, wallY, -hd))
+    put('plaster', tr(new THREE.BoxGeometry(0.18, wallH, HOUSE.d), -hw, wallY, 0))
+    put('plaster', tr(new THREE.BoxGeometry(0.18, wallH, HOUSE.d), hw, wallY, 0))
     put('plaster', tr(new THREE.BoxGeometry(HOUSE.doorW, 0.8, 0.18), lx, 2.5, hd))
 
     const posts: [number, number][] = [
@@ -51,10 +55,8 @@ export function House() {
       [hw, -hd],
       [-hw, hd],
       [hw, hd],
-      [lx - dw - 0.1, hd],
-      [lx + dw + 0.1, hd],
     ]
-    for (const [px, pz] of posts) put('timber', tr(new THREE.BoxGeometry(0.24, H + 0.05, 0.24), px, H / 2, pz))
+    for (const [px, pz] of posts) put('timber', tr(new THREE.BoxGeometry(0.24, wallH + 0.05, 0.24), px, wallY + 0.025, pz))
     put('timber', tr(new THREE.BoxGeometry(HOUSE.w + 0.3, 0.22, 0.26), 0, H, hd))
     put('timber', tr(new THREE.BoxGeometry(HOUSE.w + 0.3, 0.22, 0.26), 0, H, -hd))
     put('timber', tr(new THREE.BoxGeometry(0.26, 0.22, HOUSE.d + 0.3), -hw, H, 0))
@@ -89,23 +91,25 @@ export function House() {
     addWin(-hw - 0.09, 1.6, 0.5, -Math.PI / 2)
     addWin(hw + 0.09, 1.6, -0.6, Math.PI / 2)
 
-    const roofPts: THREE.Vector2[] = []
-    for (let i = 0; i <= 10; i++) {
-      const t = i / 10
-      const flare = 1 + 0.1 * smoothstep(0.65, 1, t)
-      roofPts.push(new THREE.Vector2(t * 5.6 * flare, 3.0 + Math.pow(1 - t, 1.35) * 2.6))
-    }
+    const roofPts = HOUSE_ROOF_PROFILE.map((p) => new THREE.Vector2(p.r, p.y))
     put('roof', new THREE.LatheGeometry(roofPts, 24))
     put('stone', tr(new THREE.BoxGeometry(0.55, 1.7, 0.55), -1.7, 5.0, -1.2))
     put('stone', tr(new THREE.BoxGeometry(0.75, 0.18, 0.75), -1.7, 5.95, -1.2))
 
-    put('wood', tr(new THREE.BoxGeometry(HOUSE.w, 0.18, HOUSE.d), 0, 0.09, 0))
+    put('wood', tr(new THREE.BoxGeometry(HOUSE.w, 0.24, HOUSE.d), 0, 0.06, 0))
     put('timber', tr(new THREE.BoxGeometry(HOUSE.w + 0.24, 0.12, HOUSE.d + 0.24), 0, 2.84, 0))
-    const doorGeo = new THREE.BoxGeometry(1.1, 2.0, 0.07)
-    doorGeo.translate(0.55, 0, 0)
-    put('timber', tr(new THREE.BoxGeometry(0.14, 2.1, 0.14), lx - 0.62, 1.05, hd + 0.1))
-    put('timber', tr(new THREE.BoxGeometry(0.14, 2.1, 0.14), lx + 0.62, 1.05, hd + 0.1))
-    put('timber', tr(new THREE.BoxGeometry(1.5, 0.16, 0.14), lx, 2.16, hd + 0.1))
+    put(
+      'timber',
+      tr(new THREE.BoxGeometry(0.2, 2.2, 0.14), HOUSE_DOOR.hingeLX - 0.12, 0.99, HOUSE_DOOR.frameZ)
+    )
+    put(
+      'timber',
+      tr(new THREE.BoxGeometry(0.2, 2.2, 0.14), HOUSE_DOOR.hingeLX + HOUSE_DOOR.openW + 0.12, 0.99, HOUSE_DOOR.frameZ)
+    )
+    put(
+      'timber',
+      tr(new THREE.BoxGeometry(HOUSE_DOOR.openW + 0.44, 0.16, 0.14), lx, HOUSE_DOOR.lintelY, HOUSE_DOOR.frameZ)
+    )
 
     put('red', tr(new THREE.CircleGeometry(1.6, 24).rotateX(-Math.PI / 2), 0.3, 0.19, 0.4))
     put('gold', tr(new THREE.CircleGeometry(1.05, 24).rotateX(-Math.PI / 2), 0.3, 0.195, 0.4))
@@ -146,7 +150,7 @@ export function House() {
     for (const [k, geos] of Object.entries(buckets)) {
       merged.push({ key: k, geo: mergeGeometries(geos, false)! })
     }
-    return { merged, doorGeo }
+    return merged
   }, [])
 
   const mats = useMemo(() => {
@@ -168,9 +172,13 @@ export function House() {
   }, [])
   const glass = useMemo(() => getGlassMaterial(), [])
   const ramp = getToonRamp()
+  const doorGeo = useMemo(
+    () => buildDoorLeaf({ w: HOUSE_DOOR.openW, h: HOUSE_DOOR.openH, t: HOUSE_DOOR.leafT, open: HOUSE_DOOR.swing }),
+    []
+  )
   return (
-    <group position={[HOUSE.x, 0, HOUSE.z]} rotation={[0, HOUSE.yaw, 0]}>
-      {built.merged.map(({ key, geo }) => (
+    <group position={[HOUSE.x, 0, HOUSE.z]} rotation={[0, HOUSE.yaw, 0]} userData={{ cullId: 'house' }}>
+      {built.map(({ key, geo }) => (
         <mesh
           key={key}
           geometry={geo}
@@ -179,7 +187,7 @@ export function House() {
           receiveShadow={key !== 'glass'}
         />
       ))}
-      <mesh geometry={built.doorGeo} position={[-0.05, 1.0, HOUSE.d / 2 + 0.12]} rotation-y={-1.9} castShadow>
+      <mesh geometry={doorGeo} position={[HOUSE_DOOR.hingeLX, 0, HOUSE_DOOR.leafZ]} castShadow>
         <meshToonMaterial color="#6b4a2f" gradientMap={ramp} />
       </mesh>
       <mesh position={[-1.6, 2.25, -1.3]}>

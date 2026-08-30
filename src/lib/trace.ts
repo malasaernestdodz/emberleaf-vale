@@ -71,6 +71,41 @@ export function resetSysMax() {
   for (const s of systems.values()) s.max = 0
 }
 
+// ---- metrics registry (counters + gauges, per-second rates) ----------------
+
+export type MetricRow = { name: string; total: number; perSec: number }
+
+const counters = new Map<string, { total: number; window: number; perSec: number }>()
+const gauges = new Map<string, number>()
+
+export function inc(name: string, n = 1) {
+  const c = counters.get(name)
+  if (c) {
+    c.total += n
+    c.window += n
+  } else {
+    counters.set(name, { total: n, window: n, perSec: 0 })
+  }
+}
+
+export function setGauge(name: string, v: number) {
+  gauges.set(name, v)
+}
+
+export function metricsTick() {
+  for (const c of counters.values()) {
+    c.perSec = c.perSec * 0.6 + c.window * 0.4
+    c.window = 0
+  }
+}
+
+export function metricsList(): MetricRow[] {
+  const rows: MetricRow[] = []
+  for (const [name, c] of counters) rows.push({ name, total: c.total, perSec: Math.round(c.perSec * 10) / 10 })
+  for (const [name, v] of gauges) rows.push({ name, total: v, perSec: 0 })
+  return rows.sort((a, b) => b.perSec - a.perSec || b.total - a.total)
+}
+
 // ---- frame-time percentiles ------------------------------------------------
 
 const FRAME_RING = 240
@@ -106,11 +141,14 @@ export function installTraceProbe() {
   w.__emberTrace = {
     events: (n = 40) => events.slice(-n),
     systems: () => sysList().map((s) => ({ name: s.name, ema: +s.ema.toFixed(3), max: +s.max.toFixed(3) })),
+    metrics: () => metricsList(),
     frame: frameStats,
     mark: trace,
     clear: () => {
       events.length = 0
       resetSysMax()
+      counters.clear()
+      gauges.clear()
     },
   }
   window.addEventListener('error', (e) => {

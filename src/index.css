@@ -990,3 +990,84 @@ kbd {
 .dp-row.trace-frame {
   opacity: 0.78;
 }
+
+.hearts {
+  position: fixed;
+  bottom: 86px;
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 11px 8px;
+  background: rgba(11, 16, 25, 0.72);
+  border: 1px solid rgba(244, 207, 138, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.hearts-label {
+  color: #f4cf8a;
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.hearts-row {
+  display: flex;
+  gap: 3px;
+}
+
+.heart {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.heart path {
+  fill: #ff4d43;
+  stroke: #ffe9c9;
+  stroke-width: 1.6;
+}
+
+.heart.empty path {
+  fill: rgba(16, 22, 33, 0.85);
+  stroke: rgba(255, 233, 201, 0.5);
+}
+
+.hearts-count {
+  color: var(--ember-soft);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.hearts.hurt .heart:not(.empty) {
+  animation: heart-thump 0.55s ease-out;
+}
+
+@keyframes heart-thump {
+  0% {
+    transform: scale(1.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hurt-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(150, 20, 12, 0.75) 100%);
+}
+
+.veil.faint {
+  background: radial-gradient(ellipse at center, #2a0705 0%, #0c0303 100%);
+}
+
+.veil.faint .veil-text {
+  color: #e8a094;
+}

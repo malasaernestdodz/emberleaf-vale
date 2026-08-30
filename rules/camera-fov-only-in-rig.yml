@@ -1,0 +1,11 @@
+id: camera-fov-only-in-rig
+language: TypeScript
+severity: error
+message: Camera FOV must come from settings via CameraRig — do not set camera.fov elsewhere.
+note: See openspec world-settings spec (single writer for field of view).
+files:
+  - 'src/**'
+ignores:
+  - 'src/scene/CameraRig.tsx'
+rule:
+  pattern: camera.fov = $V
