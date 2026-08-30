@@ -132,6 +132,7 @@ export function Probe() {
           let p: THREE.Object3D | null = o
           while (p) {
             if (!p.visible) return
+            if (p.userData?.excludeRaycast) return
             p = p.parent
           }
           meshes.push(m)

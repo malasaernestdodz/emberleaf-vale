@@ -514,7 +514,7 @@ export function Player() {
 
   const ramp = getToonRamp()
   return (
-    <group ref={root}>
+    <group ref={root} userData={{ excludeRaycast: true }}>
       <group ref={body}>
         <mesh castShadow position={[0, 0.62, 0]}>
           <capsuleGeometry args={[0.26, 0.3, 6, 12]} />
