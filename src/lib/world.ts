@@ -404,20 +404,28 @@ export const MILL = {
   step1Top: 0.8,
   step2Top: 0.4,
 }
-export const MILL_ARC = Math.PI * 2 - 2 * MILL.doorPhi - MILL.topPhi
 export const MILL_TOWER = { h: 14.5, hubY: 12.2, sailR: 6.2 }
 MILL.doorHalf = 0.24
-// Vista balcony decked off the top landing (the climb's payoff, not a dead end):
-// a phi-arc ring outside the tower wall at landing height, with a guard rail and
-// a gap in the wall band above the landing so you can walk straight out.
+export const MILL_LANDING = {
+  phi0: Math.PI * 2 - MILL.doorHalf - MILL.topPhi,
+  phi1: MILL.doorHalf,
+}
+export const MILL_ARC = MILL_LANDING.phi0 - MILL.doorPhi
+// Vista balcony stacked over the ground door: the doorway arc mirrors the
+// ground door slit (same walkable phi, wrapping through zero), so the climb
+// ends directly above the entrance — porch reads door, wall, balcony door,
+// crown. The flat top landing covers the doorway arc plus a topPhi approach.
 export const MILL_BALCONY = {
-  phi0: Math.PI * 2 - MILL.doorPhi - MILL.topPhi / 2 - 0.25, // arc start, wraps toward the door slit
-  phi1: Math.PI * 2 - MILL.doorHalf, // flush with the door-slit edge (one clean wall segment)
+  phi0: Math.PI * 2 - MILL.doorHalf,
+  phi1: MILL.doorHalf,
   r0: MILL.rIn - 0.2, // overlaps the landing ring, no step at the threshold
   r1: 7.3, // outer edge past the wall (rWall 5.2)
   railH: 1.05,
+  lintelH: 3.5, // doorway height above the deck; crown wall starts here
 }
-export const MILL_LOOKOUT_MID_PHI = (MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2
+export const MILL_BALCONY_MID = Math.PI * 2
+export const MILL_LANDING_MID = Math.PI * 2 - MILL.topPhi / 2
+export const MILL_LOOKOUT_MID_PHI = MILL_BALCONY_MID
 export const MILL_LOOKOUT = { r: 5.9, phi: MILL_LOOKOUT_MID_PHI, interactR: 2.2 }
 export const MILL_WALL_HW = 0.6
 export const MILL_DOOR_CLEAR = 0.2
@@ -463,7 +471,7 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
   if (d > MILL_BALCONY.r0 - 0.05 && d < MILL_BALCONY.r1 && curY > MILL.base + MILL.top - 0.9) {
     const phi0 = Math.atan2(-ml.lx, ml.lz)
     const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
-    if (phi >= MILL_BALCONY.phi0 && phi <= MILL_BALCONY.phi1) {
+    if (phi >= MILL_BALCONY.phi0 || phi <= MILL_BALCONY.phi1) {
       h = Math.max(h, MILL.base + MILL.top)
     }
   }
@@ -475,7 +483,7 @@ export function groundHeight(x: number, z: number, curY = Infinity) {
         const phi = phi0 < 0 ? phi0 + Math.PI * 2 : phi0
         if (phi >= MILL.doorPhi && phi <= Math.PI * 2 - MILL.doorPhi) {
           let ramp: number
-          if (phi > Math.PI * 2 - MILL.doorPhi - MILL.topPhi) {
+          if (phi >= MILL_LANDING.phi0 || phi <= MILL_LANDING.phi1) {
             ramp = MILL.base + MILL.top
           } else {
             ramp =
@@ -625,7 +633,6 @@ export const SEATS = [
   const halfA = Math.atan2(hw, MILL.rWall)
   const first = MILL_DOOR_CLEAR + halfA
   const last = Math.PI * 2 - MILL_DOOR_CLEAR - halfA
-  const balcArcEnd = Math.PI * 2 - MILL_BALCONY.phi0 + halfA
   const count = Math.max(2, Math.ceil((last - first) / (2 * halfA)) + 1)
   const step = (last - first) / (count - 1)
   for (let i = 0; i < count; i++) {
@@ -639,42 +646,46 @@ export const SEATS = [
       hd: 0.18,
       yaw: a,
       y0: MILL.base + MILL.floorH,
-      top: a < balcArcEnd ? MILL.base + MILL.top : MILL.base + 0.6 + MILL_TOWER.h,
+      top: MILL.base + 0.6 + MILL_TOWER.h,
     })
   }
   const pole = millWorld(0, 0)
   COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.35, y0: MILL.base + MILL.floorH, top: MILL.base + 14.2 })
   // Balcony guard rail: tangential boxes along the outer edge plus two radial
   // end panels, all raised (y0 = deck) so the porch below stays walkable.
+  // Angles live in collider space (a = 2π − phi), so the wrapped doorway arc
+  // [2π − doorHalf, doorHalf] becomes the plain interval [doorHalf, 2π − doorHalf].
   const balTop = MILL.base + MILL.top
   const railR = MILL_BALCONY.r1 - 0.12
   const SEG = 6
+  const railA0 = MILL_BALCONY.phi1
+  const railA1 = MILL_BALCONY.phi0
   for (let i = 0; i < SEG; i++) {
-    const a0 = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * i) / SEG
-    const a1 = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * (i + 1)) / SEG
+    const a0 = railA0 + ((railA1 - railA0) * i) / SEG
+    const a1 = railA0 + ((railA1 - railA0) * (i + 1)) / SEG
     const am = (a0 + a1) / 2
-    const p = millWorld(-Math.sin(am) * railR, Math.cos(am) * railR)
+    const p = millWorld(Math.sin(am) * railR, Math.cos(am) * railR)
     COLLIDERS.push({
       t: 'b',
       x: p.x,
       z: p.z,
       hw: railR * (a1 - a0) * 0.62,
       hd: 0.12,
-      yaw: Math.PI - am,
+      yaw: am,
       y0: balTop,
       top: balTop + MILL_BALCONY.railH,
     })
   }
   const endR = (MILL.rIn + MILL_BALCONY.r1) / 2
-  for (const edge of [MILL_BALCONY.phi0 + 0.06, MILL_BALCONY.phi1 - 0.06]) {
-    const p = millWorld(-Math.sin(edge) * endR, Math.cos(edge) * endR)
+  for (const edge of [MILL_BALCONY.phi1 + 0.06, MILL_BALCONY.phi0 - 0.06]) {
+    const p = millWorld(Math.sin(edge) * endR, Math.cos(edge) * endR)
     COLLIDERS.push({
       t: 'b',
       x: p.x,
       z: p.z,
       hw: (MILL_BALCONY.r1 - MILL.rIn) / 2,
       hd: 0.12,
-      yaw: Math.PI * 1.5 - edge,
+      yaw: Math.PI / 2 + edge,
       y0: balTop,
       top: balTop + MILL_BALCONY.railH,
     })
@@ -723,6 +734,7 @@ export const game = {
   windmill: 0,
   vista: false,
   attack: 0,
+  attackDur: 0.9,
   showColliders: false,
   colliderSolid: false,
   showPerf: false,

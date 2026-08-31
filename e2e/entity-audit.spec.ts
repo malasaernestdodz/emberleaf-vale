@@ -17,6 +17,7 @@ import {
   MILL_LOOKOUT,
   MILL_LOOKOUT_MID_PHI,
   POND,
+  PLAYER,
   SEATS,
   WELL,
   groundHeight,
@@ -167,6 +168,8 @@ test.describe('per-entity feature grill', () => {
   test('windmill: ajar door fits the slit, guarded deck, lookout on the balcony', () => {
     expect(MILL.doorHalf * 2 * MILL.rWall).toBeGreaterThanOrEqual(1.7)
     expect(MILL_BALCONY.railH).toBeGreaterThanOrEqual(1.0)
+    expect(MILL_BALCONY.lintelH).toBeGreaterThanOrEqual(PLAYER.h + 0.5)
+    expect(MILL_BALCONY.lintelH).toBeGreaterThan(PLAYER.jumpApex + 1)
     const look = millWorld(
       -Math.sin(MILL_LOOKOUT_MID_PHI) * MILL_LOOKOUT.r,
       Math.cos(MILL_LOOKOUT_MID_PHI) * MILL_LOOKOUT.r
@@ -222,7 +225,7 @@ test.describe('runtime entity audit', () => {
     await boot(page)
     await page.addStyleTag({
       content:
-        '.hud,.quests,.hotbar,.intro,.prompt,.hearts,.gear,.crosshair,.debug-panel,.veil-text{display:none!important}',
+        '.hud,.quests,.hotbar,.intro,.prompt,.hearts,.gear,.crosshair,.debug-panel,.veil-text,.slime-health{display:none!important}',
     })
     const h = await api(page)
     const from = mansionWorld(MANSION_PORTICO.cx, MANSION.d / 2 + 3.6)

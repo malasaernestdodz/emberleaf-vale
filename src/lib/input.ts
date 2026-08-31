@@ -4,6 +4,7 @@ const recent = new Map<string, number>()
 const clickEdges = new Set<number>()
 const clickRecent = new Map<number, number>()
 const EDGE_BUFFER_MS = 5000
+const CLICK_EDGE_BUFFER_MS = 150
 let mouseDown = false
 let downX = 0
 let downY = 0
@@ -42,17 +43,26 @@ export function consumeEdge(code: string) {
 }
 
 export function consumeClickEdge(button: number) {
+  const now = performance.now()
   if (clickEdges.has(button)) {
+    const t = clickRecent.get(button)
     clickEdges.delete(button)
     clickRecent.delete(button)
-    return true
+    return t !== undefined && now - t <= CLICK_EDGE_BUFFER_MS
   }
   const t = clickRecent.get(button)
-  if (t !== undefined && performance.now() - t < EDGE_BUFFER_MS) {
+  if (t !== undefined && now - t < CLICK_EDGE_BUFFER_MS) {
     clickRecent.delete(button)
     return true
   }
   return false
+}
+
+export function discardClickEdges() {
+  clickEdges.delete(0)
+  clickEdges.delete(2)
+  clickRecent.delete(0)
+  clickRecent.delete(2)
 }
 
 let installed = false
@@ -79,14 +89,21 @@ export function initInput() {
     mouseDown = false
   })
   window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return
     const target = e.target as Element | null
     if (target && target.closest && target.closest('.clickable-ui')) return
+    if (e.button === 2) {
+      clickEdges.add(2)
+      clickRecent.set(2, performance.now())
+      notifyInput()
+      return
+    }
+    if (e.button !== 0) return
     mouseDown = true
     downX = e.clientX
     downY = e.clientY
     notifyInput()
   })
+  window.addEventListener('contextmenu', (e) => e.preventDefault())
   window.addEventListener('mouseup', (e) => {
     if (e.button !== 0 || !mouseDown) return
     mouseDown = false

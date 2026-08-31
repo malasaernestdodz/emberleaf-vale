@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { resolveCollisions } from '../lib/collide'
 import { playSfx } from '../lib/audio'
 import { CHOPS_TO_FALL, hitTree, treeLife } from '../lib/trees'
-import { consumeClickEdge, consumeEdge, isDown } from '../lib/input'
+import { consumeClickEdge, consumeEdge, discardClickEdges, isDown } from '../lib/input'
 import { clamp, damp, dampAngle } from '../lib/math'
 import {
   INTERACTABLES,
@@ -28,6 +28,21 @@ import { endSys, inc } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
 
 export const wield = { rod: false, sword: false, axe: false }
+
+const SLASH_TIME = 0.22
+const HEAVY_TIME = 0.9
+
+function strikePlayer() {
+  playSfx('swing')
+  const hxF = Math.sin(game.heading)
+  const hzF = Math.cos(game.heading)
+  const res = applySlimeHit(game.x, game.z, hxF, hzF)
+  if (res === 'hit') playSfx('hit')
+  else if (res === 'pop') {
+    playSfx('pop')
+    questEvent('slime')
+  }
+}
 
 export function Player() {
   const root = useRef<THREE.Group>(null!)
@@ -56,6 +71,7 @@ export function Player() {
   const chopTarget = useRef(-1)
   const stepAcc = useRef(0)
   const attackUntil = useRef(0)
+  const attackDur = useRef(HEAVY_TIME)
 
   useFrame((_, delta) => {
     const tFrame = performance.now()
@@ -101,6 +117,7 @@ export function Player() {
     if (game.mode === 'sit') {
       const stand = spaceEdge || eEdge || wEdge || isDown('KeyA', 'KeyS', 'KeyD')
       consumeEdge('KeyG')
+      discardClickEdges()
       for (let i = 0; i < SLOT_TYPES.length; i++) consumeEdge(`Digit${i + 1}`)
       if (stand) {
         game.mode = 'walk'
@@ -134,6 +151,7 @@ export function Player() {
     }
 
     if (updateHealth(raw)) {
+      discardClickEdges()
       root.current.position.set(game.x, game.y, game.z)
       root.current.rotation.y = game.heading
       game.near = ''
@@ -248,26 +266,21 @@ export function Player() {
       game.chop = 0
     }
 
-    if (
-      consumeClickEdge(0) &&
-      !uiOpen &&
-      !game.fishing &&
-      game.mode !== 'sit' &&
-      game.chop === 0 &&
-      attackUntil.current <= game.time
-    ) {
-      attackUntil.current = game.time + 0.9
-      playSfx('swing')
-      const hxF = Math.sin(game.heading)
-      const hzF = Math.cos(game.heading)
-      const res = applySlimeHit(game.x, game.z, hxF, hzF)
-      if (res === 'hit') playSfx('hit')
-      else if (res === 'pop') {
-        playSfx('pop')
-        questEvent('slime')
-      }
+    const swingBlocked = uiOpen || game.fishing || game.mode === 'sit' || game.chop !== 0
+    if (consumeClickEdge(2) && !swingBlocked) {
+      attackDur.current = SLASH_TIME
+      attackUntil.current = game.time + SLASH_TIME
+      strikePlayer()
     }
-    game.attack = attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / 0.9 : 0
+    if (consumeClickEdge(0) && !swingBlocked && attackUntil.current <= game.time) {
+      attackDur.current = HEAVY_TIME
+      attackUntil.current = game.time + HEAVY_TIME
+      strikePlayer()
+    }
+    if (swingBlocked) discardClickEdges()
+    game.attackDur = attackDur.current
+    game.attack =
+      attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / attackDur.current : 0
     const attacking = game.attack > 0
 
     if (game.fishing) {

@@ -1056,6 +1056,53 @@ kbd {
   }
 }
 
+.slime-health {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 25;
+  pointer-events: none;
+  user-select: none;
+  padding: 5px 10px;
+  background: rgba(16, 22, 33, 0.72);
+  border: 1px solid #d8b56a;
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+  backdrop-filter: blur(6px);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.slime-health-label {
+  color: #f4cf8a;
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.slime-health-track {
+  position: relative;
+  width: 220px;
+  height: 10px;
+  background: #241a10;
+  border: 1px solid #d8b56a;
+  overflow: hidden;
+}
+
+.slime-health-fill {
+  display: block;
+  height: 100%;
+  background: #e0483e;
+  transition: width 0.12s linear;
+}
+
+.slime-health-count {
+  color: var(--ember-soft);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
 .hurt-veil {
   position: fixed;
   inset: 0;

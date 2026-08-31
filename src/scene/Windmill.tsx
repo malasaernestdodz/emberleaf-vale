@@ -11,10 +11,12 @@ const HUB_Y = MILL_TOWER.hubY
 const LINTEL_TOP = 3.87
 const BAND1_H = LINTEL_TOP - 0.6
 const BAND2_H = MILL.top - LINTEL_TOP
-const BAND3_H = WALL_H - BAND1_H - BAND2_H
+const DOORWAY_H = MILL_BALCONY.lintelH
+const BAND_CROWN_H = WALL_H - BAND1_H - BAND2_H - DOORWAY_H
 const BAND_R = (y: number) => 5.5 + ((WALL_TOP_R - 5.5) * (y - 0.6)) / WALL_H
 const R1 = BAND_R(LINTEL_TOP)
 const R2 = BAND_R(MILL.top)
+const R3 = BAND_R(MILL.top + DOORWAY_H)
 
 function buildSails() {
   const parts: THREE.BufferGeometry[] = []
@@ -155,8 +157,8 @@ export function Windmill() {
       }
     }
     for (const edge of [MILL_BALCONY.phi0, MILL_BALCONY.phi1]) {
-      const jamb = new THREE.BoxGeometry(0.24, 3.3, 0.24)
-      jamb.translate(0, 1.65, 0)
+      const jamb = new THREE.BoxGeometry(0.24, MILL_BALCONY.lintelH, 0.24)
+      jamb.translate(0, MILL_BALCONY.lintelH / 2, 0)
       jamb.translate(-Math.sin(edge) * (MILL.rWall + 0.12), MILL.top, Math.cos(edge) * (MILL.rWall + 0.12))
       parts.push(jamb)
     }
@@ -166,7 +168,7 @@ export function Windmill() {
       0.26,
       0.3
     )
-    lintel.translate(0, 3.43, 0)
+    lintel.translate(0, MILL_BALCONY.lintelH + 0.13, 0)
     lintel.rotateY(Math.PI * 1.5 - midPhi)
     lintel.translate(-Math.sin(midPhi) * (MILL.rWall + 0.12), MILL.top, Math.cos(midPhi) * (MILL.rWall + 0.12))
     parts.push(lintel)
@@ -225,8 +227,12 @@ export function Windmill() {
         <cylinderGeometry args={[R2, R1, BAND2_H, 30, 1, true]} />
         <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, MILL.top + BAND3_H / 2, 0]}>
-        <cylinderGeometry args={[WALL_TOP_R, R2, BAND3_H, 30, 1, true, balcThetaStart, balcThetaLen]} />
+      <mesh castShadow receiveShadow position={[0, MILL.top + DOORWAY_H / 2, 0]}>
+        <cylinderGeometry args={[R3, R2, DOORWAY_H, 30, 1, true, balcThetaStart, balcThetaLen]} />
+        <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, MILL.top + DOORWAY_H + BAND_CROWN_H / 2, 0]}>
+        <cylinderGeometry args={[WALL_TOP_R, R3, BAND_CROWN_H, 30, 1, true]} />
         <meshToonMaterial color="#d8cdb4" gradientMap={ramp} side={THREE.DoubleSide} />
       </mesh>
       <mesh castShadow position={[0, MILL.floorH + 0.03, 0]} rotation-x={-Math.PI / 2}>

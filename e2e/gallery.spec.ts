@@ -23,7 +23,7 @@ type Api = {
 const hideHud = (page: Page) =>
   page.addStyleTag({
     content:
-      '.hud,.quests,.hotbar,.intro,.prompt,.hearts,.gear,.crosshair,.debug-panel,.veil-text{display:none!important}',
+      '.hud,.quests,.hotbar,.intro,.prompt,.hearts,.gear,.crosshair,.debug-panel,.veil-text,.slime-health{display:none!important}',
   })
 
 const api = (page: Page) => page.evaluateHandle(() => (window as unknown as { __Ghibli: Api }).__Ghibli)
@@ -112,8 +112,9 @@ const SHOTS: Shot[] = [
   },
   {
     name: 'windmill-spiral',
-    from: millWorld(0, 4.3),
-    to: millWorld(-0.4, -1.2),
+    high: true,
+    from: millWorld(-Math.sin(Math.PI * 0.55) * 2.6, Math.cos(Math.PI * 0.55) * 2.6),
+    to: millWorld(0, 0.6),
   },
   {
     name: 'windmill-landing',
@@ -122,6 +123,18 @@ const SHOTS: Shot[] = [
     to: millWorld(
       -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9,
       Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 5.9
+    ),
+  },
+  {
+    name: 'windmill-upper',
+    high: true,
+    from: millWorld(
+      -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 7.0,
+      Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 7.0
+    ),
+    to: millWorld(
+      -Math.sin((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 2.0,
+      Math.cos((MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2) * 2.0
     ),
   },
 ]

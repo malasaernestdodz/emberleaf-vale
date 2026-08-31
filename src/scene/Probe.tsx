@@ -60,6 +60,7 @@ export function Probe() {
         tool: game.tool,
         chop: round(game.chop),
         attack: round(game.attack),
+        attackDur: round(game.attackDur),
         colliders: game.showColliders,
         colSolid: game.colliderSolid,
         near: game.near,

@@ -10,6 +10,7 @@ import { SLOT_LABELS, SLOT_TYPES, inv, selected, type Item } from './lib/items'
 import { quests, questsDone } from './lib/quests'
 import { COLLIDERS, game, groundHeight } from './lib/world'
 import { health } from './lib/health'
+import { SLIME_MAX_HP, slimeHud } from './lib/slime'
 import { frameStats, getEvents, metricsList, sysList } from './lib/trace'
 import { World } from './scene/World'
 
@@ -55,6 +56,8 @@ type Stats = {
   hurt: number
   fainted: boolean
   faintVeil: number
+  slimeShown: boolean
+  slimeFrac: number
 }
 
 type QuestView = { id: string; title: string; desc: string; progress: number; target: number; done: boolean }
@@ -214,6 +217,8 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
     hurt: 0,
     fainted: false,
     faintVeil: 0,
+    slimeShown: true,
+    slimeFrac: 1,
   })
   const [questView, setQuestView] = useState<QuestView[]>([])
   const [doneCount, setDoneCount] = useState(0)
@@ -278,6 +283,8 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
         hurt: health.hurtT,
         fainted: health.fainted,
         faintVeil: health.faintVeil,
+        slimeShown: slimeHud.shown,
+        slimeFrac: slimeHud.frac,
       })
       setQuestView(quests.map((q) => ({ id: q.id, title: q.title, desc: q.desc, progress: q.progress, target: q.target, done: q.done })))
       setDoneCount(questsDone())
@@ -371,8 +378,9 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
         <div className="card">
           Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
           <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
-          <kbd>G</kbd> throw · <kbd>1-6</kbd> items · left-click attack · <kbd>Esc</kbd> menu ·{' '}
-          <kbd>C</kbd> collider debug · <kbd>V</kbd> solid collider shapes · <kbd>P</kbd> perf trace · scroll to zoom
+          <kbd>G</kbd> throw · <kbd>1-6</kbd> items · left-click heavy attack · right-click fast
+          slash · <kbd>Esc</kbd> menu · <kbd>C</kbd> collider debug · <kbd>V</kbd> solid collider
+          shapes · <kbd>P</kbd> perf trace · scroll to zoom
         </div>
       </div>
       {stats.locked && !hudHidden && <div className="crosshair" />}
@@ -408,6 +416,19 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
           </span>
         </div>
       )}
+      <div className="slime-health" data-testid="slime-health">
+        <span className="slime-health-label">SLIME</span>
+        <span className="slime-health-track">
+          <span
+            className="slime-health-fill"
+            data-testid="slime-health-fill"
+            style={{ width: `${stats.slimeFrac * 100}%` }}
+          />
+        </span>
+        <span className="slime-health-count" data-testid="slime-hp">
+          {Math.round(stats.slimeFrac * SLIME_MAX_HP)}/{SLIME_MAX_HP}
+        </span>
+      </div>
       {stats.book && (
         <div className="book">
           <h2>The Keeper's Ledger</h2>
