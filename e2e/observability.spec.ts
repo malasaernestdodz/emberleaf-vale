@@ -51,15 +51,21 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('metrics registry exposes live numeric gauges', async ({ page }) => {
-  await page.waitForTimeout(2500)
-  const rows = await metrics(page)
-  const byName = new Map(rows.map((r) => [r.name, r]))
-  for (const g of ['fps', 'draws', 'tris', 'tier']) {
-    const row = byName.get(g)
-    expect(row, `gauge ${g} exists`).toBeTruthy()
-    expect(Number.isFinite(row!.total)).toBe(true)
+  const gaugeRow = async (name: string) => {
+    const rows = await metrics(page)
+    return rows.find((r) => r.name === name)
   }
-  expect(byName.get('fps')!.total).toBeGreaterThan(0)
+  for (const g of ['fps', 'draws', 'tris', 'tier']) {
+    await expect
+      .poll(async () => {
+        const row = await gaugeRow(g)
+        return row && Number.isFinite(row.total) ? row : null
+      }, { timeout: 30_000 })
+      .not.toBeNull()
+  }
+  await expect
+    .poll(async () => (await gaugeRow('fps'))?.total ?? 0, { timeout: 30_000 })
+    .toBeGreaterThan(0)
   await page.keyboard.press('KeyP')
   await expect(page.getByTestId('perf-panel')).toBeVisible()
   await expect(page.locator('[data-testid^="metric-"]').first()).toBeVisible()

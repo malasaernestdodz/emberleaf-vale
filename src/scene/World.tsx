@@ -13,6 +13,7 @@ import { Fountain } from './Fountain'
 import { Well } from './Well'
 import { FishingFx } from './FishingFx'
 import { Slime } from './Slime'
+import { SlashFx } from './SlashFx'
 import { Air, Butterflies } from './Air'
 import { Pickups } from './Pickups'
 import { Player } from './Player'
@@ -54,6 +55,7 @@ export function World() {
       <Slime />
       <Pickups />
       <Player />
+      <SlashFx />
       <Colliders />
       <CameraRig />
       <Culler />

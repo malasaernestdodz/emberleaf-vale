@@ -1,8 +1,8 @@
 const keys = new Set<string>()
 const edges = new Set<string>()
 const recent = new Map<string, number>()
-const clickEdges = new Set<number>()
-const clickRecent = new Map<number, number>()
+type ClickEdge = { button: number; t: number; expires: boolean }
+const clickQueue: ClickEdge[] = []
 const EDGE_BUFFER_MS = 5000
 const CLICK_EDGE_BUFFER_MS = 150
 let mouseDown = false
@@ -42,27 +42,24 @@ export function consumeEdge(code: string) {
   return false
 }
 
+function queueClickEdge(button: number, expires: boolean) {
+  clickQueue.push({ button, t: performance.now(), expires })
+}
+
+export function probeClickEdge(button: number) {
+  queueClickEdge(button, false)
+}
+
 export function consumeClickEdge(button: number) {
   const now = performance.now()
-  if (clickEdges.has(button)) {
-    const t = clickRecent.get(button)
-    clickEdges.delete(button)
-    clickRecent.delete(button)
-    return t !== undefined && now - t <= CLICK_EDGE_BUFFER_MS
-  }
-  const t = clickRecent.get(button)
-  if (t !== undefined && now - t < CLICK_EDGE_BUFFER_MS) {
-    clickRecent.delete(button)
-    return true
-  }
-  return false
+  const idx = clickQueue.findIndex((e) => e.button === button)
+  if (idx === -1) return false
+  const [e] = clickQueue.splice(idx, 1)
+  return !e.expires || now - e.t <= CLICK_EDGE_BUFFER_MS
 }
 
 export function discardClickEdges() {
-  clickEdges.delete(0)
-  clickEdges.delete(2)
-  clickRecent.delete(0)
-  clickRecent.delete(2)
+  clickQueue.length = 0
 }
 
 let installed = false
@@ -84,16 +81,14 @@ export function initInput() {
     keys.clear()
     edges.clear()
     recent.clear()
-    clickEdges.clear()
-    clickRecent.clear()
+    clickQueue.length = 0
     mouseDown = false
   })
   window.addEventListener('mousedown', (e) => {
     const target = e.target as Element | null
     if (target && target.closest && target.closest('.clickable-ui')) return
     if (e.button === 2) {
-      clickEdges.add(2)
-      clickRecent.set(2, performance.now())
+      queueClickEdge(2, true)
       notifyInput()
       return
     }
@@ -108,8 +103,7 @@ export function initInput() {
     if (e.button !== 0 || !mouseDown) return
     mouseDown = false
     if (Math.hypot(e.clientX - downX, e.clientY - downY) < 6) {
-      clickEdges.add(0)
-      clickRecent.set(0, performance.now())
+      queueClickEdge(0, true)
     }
   })
 }

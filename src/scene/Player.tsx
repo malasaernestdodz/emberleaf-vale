@@ -24,13 +24,11 @@ import { SLOT_LABELS, SLOT_TYPES, inv, nearestPickup, selected, throwPickup } fr
 import { fullHeal, healPlayer, health, updateHealth } from '../lib/health'
 import { questEvent } from '../lib/quests'
 import { applySlimeHit } from '../lib/slime'
+import { SLASH_TIME, resetSlash, slash, startSlash, tickSlash } from '../lib/slash'
 import { endSys, inc } from '../lib/trace'
 import { getToonRamp } from './toonRamp'
 
 export const wield = { rod: false, sword: false, axe: false }
-
-const SLASH_TIME = 0.22
-const HEAVY_TIME = 0.9
 
 function strikePlayer() {
   playSfx('swing')
@@ -70,8 +68,6 @@ export function Player() {
   const woodGiven = useRef(false)
   const chopTarget = useRef(-1)
   const stepAcc = useRef(0)
-  const attackUntil = useRef(0)
-  const attackDur = useRef(HEAVY_TIME)
 
   useFrame((_, delta) => {
     const tFrame = performance.now()
@@ -118,6 +114,7 @@ export function Player() {
       const stand = spaceEdge || eEdge || wEdge || isDown('KeyA', 'KeyS', 'KeyD')
       consumeEdge('KeyG')
       discardClickEdges()
+      resetSlash()
       for (let i = 0; i < SLOT_TYPES.length; i++) consumeEdge(`Digit${i + 1}`)
       if (stand) {
         game.mode = 'walk'
@@ -152,6 +149,7 @@ export function Player() {
 
     if (updateHealth(raw)) {
       discardClickEdges()
+      resetSlash()
       root.current.position.set(game.x, game.y, game.z)
       root.current.rotation.y = game.heading
       game.near = ''
@@ -267,21 +265,21 @@ export function Player() {
     }
 
     const swingBlocked = uiOpen || game.fishing || game.mode === 'sit' || game.chop !== 0
-    if (consumeClickEdge(2) && !swingBlocked) {
-      attackDur.current = SLASH_TIME
-      attackUntil.current = game.time + SLASH_TIME
+    if ((consumeClickEdge(2) || consumeClickEdge(0)) && !swingBlocked) {
       strikePlayer()
+      startSlash()
     }
-    if (consumeClickEdge(0) && !swingBlocked && attackUntil.current <= game.time) {
-      attackDur.current = HEAVY_TIME
-      attackUntil.current = game.time + HEAVY_TIME
-      strikePlayer()
+    if (swingBlocked) {
+      discardClickEdges()
+      resetSlash()
     }
-    if (swingBlocked) discardClickEdges()
-    game.attackDur = attackDur.current
-    game.attack =
-      attackUntil.current > game.time ? 1 - (attackUntil.current - game.time) / attackDur.current : 0
+    tickSlash(raw)
+    game.attackDur = SLASH_TIME
+    game.attack = slash.active && slash.t < SLASH_TIME ? 1 - slash.t / SLASH_TIME : 0
     const attacking = game.attack > 0
+    const slashP = Math.min(1, slash.t / SLASH_TIME)
+    const slashE = slashP * slashP * (3 - 2 * slashP)
+    const slashTwist = Math.sin(slashP * Math.PI)
 
     if (game.fishing) {
       if (!game.bite) {
@@ -433,15 +431,39 @@ export function Player() {
       body.current.position.y = 0
       body.current.rotation.x = 0.06
       body.current.scale.set(1, 1, 1)
+      if (attacking) {
+        armR.current.rotation.x = -0.35
+        armR.current.rotation.y = slash.dir * (1.9 - 3.5 * slashE)
+        armR.current.rotation.z = -slash.dir * 0.5 * slashTwist
+        body.current.rotation.y = slash.dir * 0.45 * slashTwist
+      } else {
+        armR.current.rotation.y = 0
+        armR.current.rotation.z = 0
+        body.current.rotation.y = 0
+      }
     } else {
       const swing = Math.sin(walk.current) * (0.15 + k * (0.75 + game.sprint * 0.2))
       legL.current.rotation.x = swing
       legR.current.rotation.x = -swing
       armL.current.rotation.x = -swing * (0.8 + game.sprint * 0.5)
-      if (game.tool === 'rod') armR.current.rotation.x = -1.0
-      else if (chopping) armR.current.rotation.x = -1.6 + Math.sin(game.chop * Math.PI * 4) * 1.2
-      else if (attacking) armR.current.rotation.x = -0.5 - Math.sin(game.attack * Math.PI) * 1.9
-      else armR.current.rotation.x = swing * (0.8 + game.sprint * 0.5)
+      if (game.tool === 'rod') {
+        armR.current.rotation.x = -1.0
+        armR.current.rotation.y = 0
+        armR.current.rotation.z = 0
+      } else if (chopping) {
+        armR.current.rotation.x = -1.6 + Math.sin(game.chop * Math.PI * 4) * 1.2
+        armR.current.rotation.y = 0
+        armR.current.rotation.z = 0
+      } else if (attacking) {
+        armR.current.rotation.x = -0.35
+        armR.current.rotation.y = slash.dir * (1.9 - 3.5 * slashE)
+        armR.current.rotation.z = -slash.dir * 0.5 * slashTwist
+      } else {
+        armR.current.rotation.x = swing * (0.8 + game.sprint * 0.5)
+        armR.current.rotation.y = 0
+        armR.current.rotation.z = 0
+      }
+      body.current.rotation.y = attacking ? slash.dir * 0.45 * slashTwist : 0
       body.current.position.y =
         Math.abs(Math.cos(walk.current)) * (0.045 + game.sprint * 0.02) * k + Math.sin(game.time * 2) * 0.012
       body.current.rotation.x = k * (0.1 + game.sprint * 0.08)

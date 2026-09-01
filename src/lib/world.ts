@@ -652,40 +652,39 @@ export const SEATS = [
   const pole = millWorld(0, 0)
   COLLIDERS.push({ t: 'c', x: pole.x, z: pole.z, r: 0.35, y0: MILL.base + MILL.floorH, top: MILL.base + 14.2 })
   // Balcony guard rail: tangential boxes along the outer edge plus two radial
-  // end panels, all raised (y0 = deck) so the porch below stays walkable.
-  // Angles live in collider space (a = 2π − phi), so the wrapped doorway arc
-  // [2π − doorHalf, doorHalf] becomes the plain interval [doorHalf, 2π − doorHalf].
+  // end panels, all raised (y0 = deck) so the porch below stays walkable. The
+  // deck spans the wrapped doorway arc [−doorHalf, doorHalf] through phi zero,
+  // so the rail run is the plain interval between the inset ends.
   const balTop = MILL.base + MILL.top
   const railR = MILL_BALCONY.r1 - 0.12
+  const railHalf = MILL.doorHalf - 0.12
   const SEG = 6
-  const railA0 = MILL_BALCONY.phi1
-  const railA1 = MILL_BALCONY.phi0
   for (let i = 0; i < SEG; i++) {
-    const a0 = railA0 + ((railA1 - railA0) * i) / SEG
-    const a1 = railA0 + ((railA1 - railA0) * (i + 1)) / SEG
-    const am = (a0 + a1) / 2
-    const p = millWorld(Math.sin(am) * railR, Math.cos(am) * railR)
+    const m0 = -railHalf + ((2 * railHalf) * i) / SEG
+    const m1 = -railHalf + ((2 * railHalf) * (i + 1)) / SEG
+    const am = (m0 + m1) / 2
+    const p = millWorld(-Math.sin(am) * railR, Math.cos(am) * railR)
     COLLIDERS.push({
       t: 'b',
       x: p.x,
       z: p.z,
-      hw: railR * (a1 - a0) * 0.62,
+      hw: railR * (m1 - m0) * 0.62,
       hd: 0.12,
-      yaw: am,
+      yaw: Math.PI - am,
       y0: balTop,
       top: balTop + MILL_BALCONY.railH,
     })
   }
   const endR = (MILL.rIn + MILL_BALCONY.r1) / 2
-  for (const edge of [MILL_BALCONY.phi1 + 0.06, MILL_BALCONY.phi0 - 0.06]) {
-    const p = millWorld(Math.sin(edge) * endR, Math.cos(edge) * endR)
+  for (const edge of [MILL_BALCONY.phi1 - 0.06, Math.PI * 2 - MILL_BALCONY.phi0 + 0.06]) {
+    const p = millWorld(-Math.sin(edge) * endR, Math.cos(edge) * endR)
     COLLIDERS.push({
       t: 'b',
       x: p.x,
       z: p.z,
       hw: (MILL_BALCONY.r1 - MILL.rIn) / 2,
       hd: 0.12,
-      yaw: Math.PI / 2 + edge,
+      yaw: Math.PI * 1.5 - edge,
       y0: balTop,
       top: balTop + MILL_BALCONY.railH,
     })
@@ -734,7 +733,7 @@ export const game = {
   windmill: 0,
   vista: false,
   attack: 0,
-  attackDur: 0.9,
+  attackDur: 0.25,
   showColliders: false,
   colliderSolid: false,
   showPerf: false,

@@ -11,6 +11,8 @@ import { settings } from '../lib/settings'
 import { frameStats } from '../lib/trace'
 import { quests, questsDone } from '../lib/quests'
 import { SLIME_MAX_HP, SLIME_SPAWN, skipSlimeRespawn, slime, slimeHud } from '../lib/slime'
+import { probeClickEdge } from '../lib/input'
+import { slash } from '../lib/slash'
 import { game, houseLocal, mansionLocal, millLocal, MILL } from '../lib/world'
 import { wield } from './Player'
 
@@ -61,6 +63,12 @@ export function Probe() {
         chop: round(game.chop),
         attack: round(game.attack),
         attackDur: round(game.attackDur),
+        slash: {
+          stage: slash.stage,
+          dir: slash.dir,
+          active: slash.active,
+          since: slash.since === Infinity ? 999 : round(slash.since),
+        },
         colliders: game.showColliders,
         colSolid: game.colliderSolid,
         near: game.near,
@@ -188,6 +196,7 @@ export function Probe() {
         return o.children[child]?.visible ?? null
       },
       skipSlimeRespawn: () => skipSlimeRespawn(),
+      probeClickEdge: (button: number) => probeClickEdge(button),
     }
   }, [])
 

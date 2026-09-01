@@ -378,8 +378,8 @@ function Hud({ started, menuOpen, onOpenMenu }: { started: boolean; menuOpen: bo
         <div className="card">
           Click the world to look with the mouse (Esc frees it) · <kbd>WASD</kbd> walk ·{' '}
           <kbd>Ctrl</kbd>/<kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>E</kbd> interact ·{' '}
-          <kbd>G</kbd> throw · <kbd>1-6</kbd> items · left-click heavy attack · right-click fast
-          slash · <kbd>Esc</kbd> menu · <kbd>C</kbd> collider debug · <kbd>V</kbd> solid collider
+          <kbd>G</kbd> throw · <kbd>1-6</kbd> items · click (either button) fast slash combo ·{' '}
+          <kbd>Esc</kbd> menu · <kbd>C</kbd> collider debug · <kbd>V</kbd> solid collider
           shapes · <kbd>P</kbd> perf trace · scroll to zoom
         </div>
       </div>

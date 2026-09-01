@@ -37,12 +37,14 @@ function buildSails() {
 }
 
 const STEPS = 34
-const STEP_R = (MILL.rCenter + MILL.rIn) / 2
-const STEP_W = MILL.rIn - MILL.rCenter + 0.1
+const TREAD_R0 = MILL.rCenter - 0.45
+const TREAD_R1 = MILL.rIn + 0.1
+const STEP_R = (TREAD_R0 + TREAD_R1) / 2
+const STEP_W = TREAD_R1 - TREAD_R0
 
 function buildRampShell() {
-  const r0 = MILL.rCenter - 0.05
-  const r1 = MILL.rIn + 0.05
+  const r0 = TREAD_R0
+  const r1 = MILL.rWall - 0.05
   const N = 72
   const depth = 0.45
   const phi0 = MILL.doorPhi
@@ -111,15 +113,27 @@ export function Windmill() {
       g.rotateY(Math.PI - phi)
       g.translate(-Math.sin(phi) * STEP_R, y - 0.21, Math.cos(phi) * STEP_R)
       parts.push(g)
+      const nail = new THREE.BoxGeometry(0.14, 0.3, 0.14)
+      nail.translate(0, y - 0.55, 0)
+      nail.rotateY(Math.PI - phi)
+      nail.translate(-Math.sin(phi) * (MILL.rWall - 0.18), y - 0.55, Math.cos(phi) * (MILL.rWall - 0.18))
+      parts.push(nail)
+      const bracket = new THREE.BoxGeometry(0.12, 0.12, TREAD_R0 - 0.1)
+      bracket.rotateX(Math.PI / 2 - 0.7)
+      bracket.rotateY(Math.PI - phi)
+      bracket.translate(-Math.sin(phi) * (TREAD_R0 / 2 + 0.05), y - 0.62, Math.cos(phi) * (TREAD_R0 / 2 + 0.05))
+      parts.push(bracket)
     }
-    // Vista balcony: deck, guard rail, doorway jambs, support brackets.
+    // Vista balcony, stacked over the ground door: deck arc symmetric about
+    // phi zero, guard rail, doorway jambs, lintel, awning, support brackets.
+    const deckPhiHalf = MILL.doorHalf
     const deck = new THREE.RingGeometry(
       MILL_BALCONY.r0,
       MILL_BALCONY.r1,
       24,
       1,
-      Math.PI * 1.5 - MILL_BALCONY.phi1,
-      MILL_BALCONY.phi1 - MILL_BALCONY.phi0
+      Math.PI * 1.5 - deckPhiHalf,
+      deckPhiHalf * 2
     )
     deck.rotateX(-Math.PI / 2)
     deck.translate(0, MILL.top + 0.02, 0)
@@ -127,13 +141,13 @@ export function Windmill() {
     const railR = MILL_BALCONY.r1 - 0.12
     const SEG = 6
     for (let i = 0; i <= SEG; i++) {
-      const phi = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * i) / SEG
+      const phi = -deckPhiHalf + 0.12 + ((deckPhiHalf * 2 - 0.24) * i) / SEG
       const post = new THREE.BoxGeometry(0.1, MILL_BALCONY.railH, 0.1)
       post.translate(0, MILL_BALCONY.railH / 2, 0)
       post.translate(-Math.sin(phi) * railR, MILL.top, Math.cos(phi) * railR)
       parts.push(post)
       if (i < SEG) {
-        const phi2 = MILL_BALCONY.phi0 + 0.12 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.24) * (i + 1)) / SEG
+        const phi2 = -deckPhiHalf + 0.12 + ((deckPhiHalf * 2 - 0.24) * (i + 1)) / SEG
         const am = (phi + phi2) / 2
         const chord = 2 * railR * Math.sin((phi2 - phi) / 2) + 0.12
         const rm = railR * Math.cos((phi2 - phi) / 2)
@@ -146,7 +160,7 @@ export function Windmill() {
         }
       }
     }
-    for (const edge of [MILL_BALCONY.phi0 + 0.06, MILL_BALCONY.phi1 - 0.06]) {
+    for (const edge of [-deckPhiHalf + 0.06, deckPhiHalf - 0.06]) {
       const rm = (MILL.rIn + MILL_BALCONY.r1) / 2
       for (const ry of [MILL_BALCONY.railH - 0.05, MILL_BALCONY.railH * 0.55]) {
         const panel = new THREE.BoxGeometry(MILL_BALCONY.r1 - MILL.rIn, 0.09, 0.08)
@@ -156,29 +170,66 @@ export function Windmill() {
         parts.push(panel)
       }
     }
-    for (const edge of [MILL_BALCONY.phi0, MILL_BALCONY.phi1]) {
+    for (const edge of [-deckPhiHalf, deckPhiHalf]) {
       const jamb = new THREE.BoxGeometry(0.24, MILL_BALCONY.lintelH, 0.24)
       jamb.translate(0, MILL_BALCONY.lintelH / 2, 0)
       jamb.translate(-Math.sin(edge) * (MILL.rWall + 0.12), MILL.top, Math.cos(edge) * (MILL.rWall + 0.12))
       parts.push(jamb)
     }
-    const midPhi = (MILL_BALCONY.phi0 + MILL_BALCONY.phi1) / 2
     const lintel = new THREE.BoxGeometry(
-      2 * (MILL.rWall + 0.12) * Math.sin((MILL_BALCONY.phi1 - MILL_BALCONY.phi0) / 2) + 0.2,
+      2 * (MILL.rWall + 0.12) * Math.sin(deckPhiHalf) + 0.26,
       0.26,
       0.3
     )
     lintel.translate(0, MILL_BALCONY.lintelH + 0.13, 0)
-    lintel.rotateY(Math.PI * 1.5 - midPhi)
-    lintel.translate(-Math.sin(midPhi) * (MILL.rWall + 0.12), MILL.top, Math.cos(midPhi) * (MILL.rWall + 0.12))
+    lintel.rotateY(Math.PI * 1.5)
+    lintel.translate(0, MILL.top, MILL.rWall + 0.12)
     parts.push(lintel)
+    const awning = new THREE.BoxGeometry(
+      2 * (MILL.rWall + 0.3) * Math.sin(deckPhiHalf + 0.1),
+      0.1,
+      1.15
+    )
+    awning.rotateX(0.38)
+    awning.rotateY(Math.PI * 1.5)
+    awning.translate(0, MILL_BALCONY.lintelH - 0.42, MILL.rWall + 0.72)
+    awning.translate(0, MILL.top, 0)
+    parts.push(awning)
+    for (const edge of [-deckPhiHalf + 0.05, deckPhiHalf - 0.05]) {
+      const stay = new THREE.BoxGeometry(0.08, 0.08, 1.15)
+      stay.rotateX(0.38)
+      stay.rotateY(Math.PI * 1.5 - edge)
+      const sr = MILL.rWall + 0.55
+      stay.translate(-Math.sin(edge) * sr, MILL_BALCONY.lintelH - 0.18, Math.cos(edge) * sr)
+      stay.translate(0, MILL.top, 0)
+      parts.push(stay)
+    }
     for (let i = 0; i < 3; i++) {
-      const phi = MILL_BALCONY.phi0 + 0.2 + ((MILL_BALCONY.phi1 - MILL_BALCONY.phi0 - 0.4) * i) / 2
+      const phi = -deckPhiHalf + 0.35 + ((deckPhiHalf * 2 - 0.7) * i) / 2
       const brace = new THREE.BoxGeometry(0.16, 0.16, 2.4)
       brace.rotateX(-0.62)
       brace.rotateY(Math.PI * 1.5 - phi)
       brace.translate(-Math.sin(phi) * 6.0, MILL.top - 0.72, Math.cos(phi) * 6.0)
       parts.push(brace)
+    }
+    for (const edge of [-deckPhiHalf, deckPhiHalf]) {
+      for (const dy of [0.55, 2.2]) {
+        const post = new THREE.BoxGeometry(0.14, 2.0, 0.14)
+        post.rotateX(Math.PI / 2 - 0.55)
+        post.rotateY(Math.PI * 1.5 - edge)
+        post.translate(-Math.sin(edge) * 5.9, MILL.top - 1.0 - dy * 0.2, Math.cos(edge) * 5.9)
+        parts.push(post)
+      }
+    }
+    const deckY = MILL.top
+    const innerR = MILL.rCenter + 0.62
+    const underPhi = MILL.doorPhi + 0.06
+    for (let i = 0; i < 5; i++) {
+      const y = MILL.floorH + ((deckY - MILL.floorH) * i) / 4
+      const beam = new THREE.BoxGeometry(0.18, 0.14, innerR - 0.2)
+      beam.rotateY(Math.PI - underPhi)
+      beam.translate(-Math.sin(underPhi) * (innerR / 2 + 0.1), y, Math.cos(underPhi) * (innerR / 2 + 0.1))
+      parts.push(beam)
     }
     parts.push(buildRampShell())
     return mergeGeometries(
@@ -187,8 +238,8 @@ export function Windmill() {
     )!
   }, [])
   const landingGeo = useMemo(() => {
-    const thetaStart = MILL.doorPhi - Math.PI / 2
-    const g = new THREE.RingGeometry(MILL.rCenter, MILL.rIn, 24, 1, thetaStart, MILL.topPhi)
+    const thetaStart = -Math.PI / 2 - MILL.topPhi
+    const g = new THREE.RingGeometry(MILL.rCenter, MILL.rIn, 24, 1, thetaStart, MILL.topPhi * 2)
     g.rotateX(-Math.PI / 2)
     g.translate(0, MILL.top + 0.001, 0)
     return g
