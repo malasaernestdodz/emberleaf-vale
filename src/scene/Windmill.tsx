@@ -259,11 +259,12 @@ export function Windmill() {
   const doorLeafH = LINTEL_TOP - 0.24 - MILL.floorH
   const doorOpen = 0.57
   // Cylinder theta runs opposite to the walkable phi convention (theta = -phi),
-  // so the balcony arc [phi0, phi1] opens the upper band at cylinder thetas
-  // [2π − phi0, 2π − phi0 + phi0 + doorHalf]; the length wraps past 2π so the
-  // door slit stays closed above the deck and only the balcony arc shows sky.
-  const balcThetaStart = Math.PI * 2 - MILL_BALCONY.phi0
-  const balcThetaLen = MILL_BALCONY.phi0 + MILL.doorHalf
+  // so the balcony doorway — the wrapped walkable arc [-doorHalf, +doorHalf]
+  // through phi zero — opens band 3 over cylinder thetas
+  // [2π − doorHalf, 2π + doorHalf]. The length wraps past 2π so the arc is
+  // symmetric about the door; everything else on this band is wall.
+  const balcThetaStart = Math.PI * 2 - MILL.doorHalf
+  const balcThetaLen = MILL.doorHalf * 2
   return (
     <group position={[WINDMILL.x, WINDMILL_Y, WINDMILL.z]} rotation={[0, MILL.yaw, 0]} userData={{ cullId: 'windmill' }}>
       <mesh castShadow receiveShadow position={[0, 0.6, 0]}>
